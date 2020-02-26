@@ -142,8 +142,12 @@ void setup() {
 	
 	//setup GPS
 	Wire.begin(1);
+	//Al PC: scrivi che è in attesa dei satelliti
 	Wire.onRequest(GPSReady);
+	//Al PC: scrivi che è pronto
 	
+	//ASPETTA 'OK' DAL PC PER PROCEDERE
+	//Da scrivere
 }
 
 void loop(){
@@ -268,7 +272,8 @@ int direzione(long lat1, long lng1, long lat2, long lng2, long GtoMLat, long Gto
 void newRoute(){
 	
 	if(wp[m].mode==1){        //rotta diretta per il waypoint
-    
+    //regola potenza del motore
+	
     XWp=asin((wp[m].alm - pos.alm)/dist)*180/Pi; //calcolo della rotta diretta verso il waypoint
     YWp=0;                //non ci dovrebbe essere rollio
     dirWp= direzione(pos.lat, pos.lng, wp[m].lat, wp[m].lng, GtoMLat, GtoMLong, distWp, m); //calcola la nuova rotta

@@ -1,2 +1,24 @@
 # Planes-
+--OVERVIEW--
 An arduino autopilot for a model airplane
+This system needs 2 Arduinos and a PC.
+With the chosen radio modules, the distance between the PC and the plane needs to be less than 1 km to recieve and transmitt telemetry or changes to the flight plan.
+Despite that, after the preflight procedures the plane can fly completely by itself at greater distances, although the operator won't recieve telemetry, and won't be able to modify the flight plan.
+
+--FLIGHT PLAN--
+The flight plan consists of a series of waypoints, designated by latitude, longitude, altitude, and mode.
+-latitude, longitude: represented by whole deg. and then decimals (e.g.: 45.5°= 45°30'). They can have up to 8 decimals.
+-altitude: represented in meters.
+-mode: specifies what the waypoint is: 1 is direct route, 2 is take off, 3 is landing, 4 is fly inverted, and we may add more 
+
+--SETUP--
+An Arduino Mega is mounted on the plane, connected to the motor, servos, GPS, accelerometer, gyroscope, magnetic compass, and radio modules. We call it "Autopilot".
+An Arduino nano (or uno) is connected to the PC and to a radio module. We call it "Radio".
+Last, we have a PC program made with LabView, called "ControlCenter".
+
+--ROLES--
+-Autopilot: Drives the plane through the waypoints, and sends telemetry data to Radio.
+-Radio: Relays data between Autopilot and ControlCenter.
+-ControlCenter: displays telemetry data and sends the flight plan to Radio.
+
+

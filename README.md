@@ -1,4 +1,4 @@
-# Planes-
+# Planes
 --OVERVIEW--
 An arduino autopilot for a model airplane
 This system needs 2 Arduinos and a PC.
@@ -20,5 +20,29 @@ Last, we have a PC program made with LabView, called "ControlCenter".
 -Autopilot: Drives the plane through the waypoints, and sends telemetry data to Radio.
 -Radio: Relays data between Autopilot and ControlCenter.
 -ControlCenter: displays telemetry data and sends the flight plan to Radio.
+
+--TELEMETRY--
+Flight Data from the plane is sent in one single package, in a string organized like this:
+-'f'
+-number of the waypoint the plane is pointing to 
+-speed (m/s)
+-Roll angle
+-Roll correction
+-Pitch
+-Pitch correction
+-latitude
+-longitude
+-'l'
+With 'f' and 'l' are two characters placed there to verify data integrity.
+Every number is sent as an integer, so ControlCenter needs to scale down the latitude and longitude 
+(the others are already integers to begin with)
+
+
+
+
+
+
+
+
 
 

@@ -1,4 +1,4 @@
-# Planes
+# AutoPlanes
 --OVERVIEW--
 An arduino autopilot for a model airplane
 This system needs 2 Arduinos and a PC.

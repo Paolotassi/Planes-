@@ -26,6 +26,7 @@ Flight Data from the plane is sent in one single package, in a string organized 
 -'f'
 -number of the waypoint the plane is pointing to 
 -speed (m/s)
+-altitude (m)
 -Roll angle
 -Roll correction
 -Pitch

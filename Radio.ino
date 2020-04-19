@@ -88,7 +88,7 @@ while (!Serial.available()){}
    }
   if (Data=="info"){
     //ricevi dati dall'aereo
-    Answer= "f011907011005009021l";//stringa con telemetria. Questo è solo un esempio
+    Answer= "f0013012004006003001012l";//stringa con telemetria. Questo è solo un esempio
     Serial.flush();
     Serial.print(Answer);//affermativo, pronti
   }
@@ -120,9 +120,9 @@ answerSigla='n';
   }
 
 
- /* 
 
-if(Status=="inFlight"){
+
+while(Status=="inFlight"){//ciclo di prova. La versione giusta ha if, ed è qui sotto commentata
 
   while (!Serial.available()){}
    while (Serial.available()){
@@ -130,16 +130,33 @@ if(Status=="inFlight"){
    }
   if (Data=="info"){
     //ricevi dati dall'aereo
-    //Answer= stringa con telemetria
+    Answer= "f0013012004006003001032l";//stringa con telemetria. Questo è solo un esempio
     Serial.flush();
     Serial.print(Answer);//affermativo, pronti
   }
 
   
 }
+ 
+
+/*if(Status=="inFlight"){
+
+  while (!Serial.available()){}
+   while (Serial.available()){
+      Data=Serial.readString();
+   }
+  if (Data=="info"){
+    //ricevi dati dall'aereo
+    //Answer= "f00130120040060030010112";//stringa con telemetria. Questo è solo un esempio
+    Serial.flush();
+    Serial.print(Answer);//affermativo, pronti
+  }
+
+  
+}*/
 
 
-*/
+
   
 delay(100000);
 

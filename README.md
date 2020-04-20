@@ -7,7 +7,7 @@ Despite that, after the preflight procedures the plane can fly completely by its
 
 --FLIGHT PLAN--
 The flight plan consists of a series of waypoints, designated by latitude, longitude, altitude, and mode.
--latitude, longitude: represented by whole deg. and then decimals (e.g.: 45.5°= 45°30'). They can have up to 8 decimals.
+-latitude, longitude: represented by whole deg. and then decimals (e.g.: 45.5°= 45°30'). They can have up to 7 decimals.
 -altitude: represented in meters.
 -mode: specifies what the waypoint is: 1 is direct route, 2 is take off, 3 is landing, 4 is fly inverted, and we may add more 
 

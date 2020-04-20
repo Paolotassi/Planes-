@@ -88,7 +88,7 @@ while (!Serial.available()){}
    }
   if (Data=="info"){
     //ricevi dati dall'aereo
-    Answer= "f00103012004006003001001000000000200000000l";//stringa con telemetria. Questo è solo un esempio
+    Answer= "f00103012004006003001000100000000020000000l";//stringa con telemetria. Questo è solo un esempio
     Serial.flush();
     Serial.print(Answer);//affermativo, pronti
   }
@@ -131,7 +131,7 @@ while(i<10){
    }
   if (Data=="info"){
     //ricevi dati dall'aereo
-    Answer= "f00103012004006003001003000000000200000000l";//stringa con telemetria. Questo è solo un esempio
+    Answer= "f00103012004006003001000300000000020000000l";//stringa con telemetria. Questo è solo un esempio
     Serial.flush();
     Serial.print(Answer);//affermativo, pronti
   }
@@ -146,7 +146,7 @@ while (!Serial.available()){}
    }
   if (Data=="info"){
     //ricevi dati dall'aereo
-    Answer= "f00103012004006003001002000000000300000000l";//stringa con telemetria. Questo è solo un esempio
+    Answer= "f00103012004006003001000200000000030000000l";//stringa con telemetria. Questo è solo un esempio
     Serial.flush();
     Serial.print(Answer);//affermativo, pronti
   }

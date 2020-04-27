@@ -10,9 +10,12 @@
 #include <string.h>
 #include <math.h>
 #include <Servo.h>
+#include <SPI.h>
+#include <RF22.h>
+
 #define N 20    //numero massimo di waypoints
 #define Pi 3.1415926 //costante pi greco
-#define DELAY 500	//intervallo in millisecondi tra 2 cicli
+#define DELAY 500	//intervallo MINIMO in millisecondi tra 2 cicli
 
 /*------ COSTANTI BUSSOLA -------*/
 #define Mode_Standby    0b00000000
@@ -68,9 +71,8 @@ typedef struct{
 
 int m=0;    //indice utilizzato dal loop per scorrere i waypoints
 unsigned long time=0;  //prende il tempo quando richiesto
+unsigned long loopTime=0;  //prende il tempo del ciclo di loop
 
-
-Waypoint wp[N];   //array che contiene il percorso stabilito
 
 //GPS
 Position pos;   //posizione attuale
@@ -115,10 +117,14 @@ int XWp,YWp,dirWp;  //rotta diretta per il waypoint
 int errDist=2;  //distanza in metri dal waypoint al di sotto della quale il wp si considera raggiunto
 int deltaDir; //distanza angolare tra la rotta del momento e quella da seguire per arrivare al waypoint
 
+//Piano di volo
+Waypoint wp[N];   //array che contiene il percorso stabilito
+int nWp;	//numero effettivo di waypoints
 
 
 /*------ PROGRAMMA -------*/
 
+RF22 rf22;
 TinyGPSPlus gps;
 SoftwareSerial ss(0,1); //da connettere a TX e RX rispettivamente 
 
@@ -136,38 +142,56 @@ void setup() {
 	wp[i].reached=0;
 	wp[i].mode=0;
 	}
+	
+	//setup ricetrasmittente
+	rf22.init();
+	
+	//RICEVI RICHIESTA CONNESSIONE
 	//SETUP RICETRASMETTITORE
+	//INVIA CONFERMA CONNESSIONE
+	
+	//RICEZIONE NUMERO WAYPOINTS
+	//nWp= numero ricevuto;
+	//INVIA CONFERMA NUMERO WAYPOINTS
 	
 	//RICEZIONE PIANO DI VOLO; SALVALO IN wp
+	//for(int i=0; i<nWp ; i++){ salva il waypoint, rispondi ricevuto }
 	
+	//RICEVI RICHIESTA POSIZIONE INIZIALE
 	//setup GPS
 	Wire.begin(1);
-	//Al PC: scrivi che è in attesa dei satelliti
 	Wire.onRequest(GPSReady);
-	//Al PC: scrivi che è pronto
+	readGPS();  //ricevi i dati dal GPS
+	//INVIA POSIZIONE INIZIALE
 	
-	//ASPETTA 'OK' DAL PC PER PROCEDERE
-	//Da scrivere
+	//ASPETTA AUTORIZZAZIONE AL VOLO
+	//CONFERMA INIZIO VOLO. PASSA AL LOOP
+	
+	
 }
 
 void loop(){
-
+	//Per come è strutturato, è molto probabile che il ciclo duri più di DELAY
+	//Quindi per il calcolo della velocità si usa la differenza tra loopTime e millis()
   
 	readGPS();  //ricevi i dati dal GPS
 
 	SpeedDirection();	//trova velocità e direzione; decide se passare al waypoint successivo
 	readAndProcessAccelData();  //dati dall'accelerometro
 	readCompassData(); //dati dalla bussola
-	//INVIA A PC DATI SU DIREZIONE E ORIENTAMENTO
+	
+	//INVIA TELEMETRIA
   
 	newRoute();	//trova e segui la nuova rotta. N.B.: c'è un loop per cui non si passa alla prossima funzione finchè non si è in rotta 
-	time= millis();
+	loopTime= millis();
 	readGPS();  //trova la posizione attuale
   
 	PresentToPast(&pos, &posPast);  //salva la posizione pos in posPast
-	//RICEVI EVENTUALI MODIFICHE AL PIANO DI VOLO
-	//INVIA A PC DATI SU DIREZIONE E ORIENTAMENTO
-	while( millis()-time < DELAY  ); //aspetta per ottenere un intervallo DELAY tra 2 rilevamenti GPS
+	
+	//INVIA TELEMETRIA
+
+	while( millis()-loopTime < DELAY  ) //aspetta per ottenere un intervallo DELAY tra 2 rilevamenti GPS
+		PID(); //mantiene una rotta stabile, secondo i parametri stabiliti da newRoute
 
 }//loop
 
@@ -186,8 +210,8 @@ void readGPS(){
   while (ss.available() > 0){
       gps.encode(ss.read());
     
-      pos.lat=gps.location.lat();
-      pos.lng=gps.location.lng();
+      pos.lat=gps.location.lat()*10000000;
+      pos.lng=gps.location.lng()*10000000;
       pos.alm=gps.altitude.meters();
       nSat=gps.satellites.value();
     
@@ -232,7 +256,7 @@ void readCompassData(){
 void SpeedDirection(){
 	
 	dist = distanza(posPast.lat, posPast.lng, pos.lat, pos.lng, GtoMLat, GtoMLong, m);//distanza dal rilevamento precedente
-	speed = dist/DELAY;	
+	speed = dist/(millis()-loopTime);	
 	if(dist>0)
 		dir = direzione(posPast.lat, posPast.lng, pos.lat, pos.lng, GtoMLat, GtoMLong, dist, m);//angolo col nord di un vettore posPast->pos
   
@@ -272,8 +296,7 @@ int direzione(long lat1, long lng1, long lat2, long lng2, long GtoMLat, long Gto
 void newRoute(){
 	
 	if(wp[m].mode==1){        //rotta diretta per il waypoint
-    //regola potenza del motore
-	
+    
     XWp=asin((wp[m].alm - pos.alm)/dist)*180/Pi; //calcolo della rotta diretta verso il waypoint
     YWp=0;                //non ci dovrebbe essere rollio
     dirWp= direzione(pos.lat, pos.lng, wp[m].lat, wp[m].lng, GtoMLat, GtoMLong, distWp, m); //calcola la nuova rotta
@@ -289,7 +312,14 @@ void newRoute(){
 	
 }
 
+
 void PID(){
+	
+	//FUNZIONAMENTO:
+	//L'aereo non avrà un timone, quindi si possono controllare soltanto rollio (y) e beccheggio (x)
+	//Per cambiare rotta, l'aereo si inclina su un lato (quindi il rollio è anche proporzionale
+	//all'angolo tra rotta attuale e rotta desiderata)
+	//Questo abbassa il muso dell'aereo, che verrà quindi bilanciato dal controllore del beccheggio
 	
 	pidVariables();	//trova X e dirCompass
 	deDir= dirCompass + deltaDir;  //la rotta a cui dirCompass dovrà essere uguale a fine ciclo
@@ -298,7 +328,7 @@ void PID(){
 	i_accumulator_R = 0;
 	i_accumulator_I = 0;
 	  
-	while( (deDir-dirCompass)<-3 || (deDir-dirCompass)>3 || (angX-XWp)<-3 || (angX-XWp)>3 ){ //finchè la rotta è entro limiti accettabili
+	while( (deDir-dirCompass)<-3 || (deDir-dirCompass)>3 || (angX-XWp)<-3 || (angX-XWp)>3 || (angY-YWp)<-3 || (angY-YWp)>3){ //finchè la rotta è entro limiti accettabili
 		time = millis();
 		
 		readAndProcessAccelData();  //dati dall'accelerometro
@@ -345,8 +375,11 @@ void PID(){
 		
 		posX = 90 + deX;
 		posY = 90 + deY;
-		while( (millis()-time) <10 ); //aspetta per far sì che il ciclo duri 10 ms
-	  
+		
+		while( (millis()-time) < (1000/SAMPLING_FREQ) ){ //aspetta per far sì che il ciclo duri il giusto
+			//non so se è un tempo sufficiente, ma in caso affermativo
+			//INVIA TELEMETRIA
+		}
 	}
 
 }

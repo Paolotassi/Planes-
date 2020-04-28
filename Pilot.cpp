@@ -73,6 +73,12 @@ int m=0;    //indice utilizzato dal loop per scorrere i waypoints
 unsigned long time=0;  //prende il tempo quando richiesto
 unsigned long loopTime=0;  //prende il tempo del ciclo di loop
 
+//RICETRASMETTITORE
+String Data;      //stringa con il comando o dato ricevuto
+String Answer;    //stringa con telemetria (o altre risposte)
+String Relevant;	//sottostringa di Data, contiene solo i caratteri utili
+uint8_t buf_size=50;	//verifica a quanto impostare questo
+byte Status=0;		//individua a che punto del Setup siamo. Permette di interpretare correttamente le trasmissioni
 
 //GPS
 Position pos;   //posizione attuale
@@ -82,7 +88,7 @@ long GtoMLat=111136;  //conversione gradi->metri lungo un meridiano (1 deg= 1111
 long GtoMLong=111322;   //conversione gradi->metri lungo un parallelo (1 deg= 111322 m all'equatore)
             //NB: va moltiplicato per cos(latitudine)per latitudini diverse da 0
 
-// ACCELEROMETRO
+//ACCELEROMETRO
 long accelX, accelY, accelZ;
 float gForceX, gForceY, gForceZ;
 int angX = 0, angY = 0; //rotazione attorno all'asse X, Y
@@ -102,7 +108,7 @@ float newX, newY;
 //SERVO			
 Servo servoX;
 Servo servoY;
-int posX = 90; //posizione servo
+int posX = 90; //posizione servo. N.B.: prima di inviarle, va sottratto 90
 int posY = 90;
 int deX, deY; //movimento richiesto ai servo			
 			
@@ -146,28 +152,45 @@ void setup() {
 	//setup ricetrasmittente
 	rf22.init();
 	
-	//RICEVI RICHIESTA CONNESSIONE
-	//SETUP RICETRASMETTITORE
-	//INVIA CONFERMA CONNESSIONE
+	//Status = 0 -> richiesta connessione
+	//Status = 1 -> ricevi numero waypoints
+	while (Status <2){	
+		Recieve(m);
+		Send(Answer);	
+	}
 	
-	//RICEZIONE NUMERO WAYPOINTS
-	//nWp= numero ricevuto;
-	//INVIA CONFERMA NUMERO WAYPOINTS
+	//Status = 2 -> ricevi i waypoints
+	if (Status == 2){
+		for(int m=0; m<nWp ; m++){ 
+			Recieve(m);
+			Send(Answer);
+		}
+	}
 	
-	//RICEZIONE PIANO DI VOLO; SALVALO IN wp
-	//for(int i=0; i<nWp ; i++){ salva il waypoint, rispondi ricevuto }
 	
 	//RICEVI RICHIESTA POSIZIONE INIZIALE
 	//setup GPS
 	Wire.begin(1);
 	Wire.onRequest(GPSReady);
 	readGPS();  //ricevi i dati dal GPS
+	
 	//INVIA POSIZIONE INIZIALE
+	if(Status == 3){
+		Recieve(m);
+		Send(Answer);
+	}
 	
 	//ASPETTA AUTORIZZAZIONE AL VOLO
+	if(Status == 4){
+		Recieve(m);
+		Send(Answer);
+	}
+	
 	//CONFERMA INIZIO VOLO. PASSA AL LOOP
+	if(Status != 5)
+		Send( "f00000000000000000000000000000000000000errorl" );
 	
-	
+	m = 0; //azzera quest'indice, che deve essere usato anche nel loop
 }
 
 void loop(){
@@ -199,10 +222,140 @@ void loop(){
 
 
 
+/*------ FUNZIONI DI TRASMISSIONE -------*/
+void createTelemetry(){
+	
+}
 
+void Send( String Answer ){
+	
+	int len = sizeof(Answer);
+   uint8_t answer[len];
+   Answer.getBytes(answer, len);	//trasforma la strinfa Data in array di bytes
+  rf22.send(answer, sizeof(answer));
+    rf22.waitPacketSent();
+	
+}
 
-
-
+void Recieve(int i){
+	uint8_t data[buf_size];
+	rf22.waitAvailable();    
+    // Should be a message for us now   
+    rf22.recv(data, &buf_size);
+	Data = (char*)data;
+	 
+	if(Data == "ready" && Status == 0){	//Controllo della connessione
+		 Answer = "yes";
+		 Status = 1;
+		 
+	}else if(Status == 1){	//Ricevi il numero di Waypoints
+		Answer = Data;
+		Status = 2;
+		nWp = Data.toInt();
+		
+	}else if(Status == 2){	//Ricevi i Waypoints
+		Answer = (i+1);	
+		
+		Relevant = Answer.substring(1,11); //11 bytes
+		wp[i].lat = Relevant.toInt();
+			if (Answer[0] == '-')
+				wp[i].lat = - wp[i].lat; 
+			
+		Relevant = Answer.substring(12,22); //11 bytes
+		wp[i].lng = Relevant.toInt();
+			if (Answer[11] == '-')
+				wp[i].lng = - wp[i].lng; 
+			
+		Relevant = Answer.substring(22,25); //3 bytes
+		wp[i].alm = Relevant.toInt();
+		
+		Relevant = Answer.substring(25,26); //1 byte
+		wp[i].mode = Relevant.toInt();
+		
+		if(i== nWp -1)	//aggiorna Status dopo aver caricato tutti i waypoints
+			Status = 3;		
+		
+		
+		
+		
+	}else if(Data == "info" && Status == 3){	//invia la prima stringa di dati
+		Answer = "";
+		Answer = Answer + 'f';
+		Answer = Answer + 000;
+		Answer = Answer + 000;
+		
+		if(pos.alm < 10)
+			Relevant = "00" + pos.alm;
+		else if(pos.alm < 100)
+			Relevant = "0" + pos.alm;
+		else 
+			Relevant = pos.alm;
+		Answer = Answer + Relevant;
+		
+		Answer = Answer + 000;
+		Answer = Answer + 000;
+		Answer = Answer + 000;
+		Answer = Answer + 000;
+		
+		
+		if (pos.lat > 0 ){	//sistema la stringa per la latitudine
+		if(pos.lat < 1*10000000)
+			Relevant = "0000" + pos.lat;
+		else if(pos.lat < 10*10000000)
+			Relevant = "000" + pos.lat;
+		else if(pos.lat < 100*10000000)
+			Relevant = "00" + pos.lat;
+		else 
+			Relevant = "0" +pos.lat;
+		
+		}else if (pos.lat < 0 ){
+		if((-pos.lat) < 1*10000000)
+			Relevant = "-000" + (-pos.lat);
+		else if(-pos.lat < 10*10000000)
+			Relevant = "-00" + (-pos.lat);
+		else if(-pos.lat < 100*10000000)
+			Relevant = "-0" + (-pos.lat);
+		else 
+			Relevant = "-" +(-pos.lat);
+		
+		}
+		Answer = Answer + Relevant;
+		
+		if (pos.lng > 0 ){	//sistema la stringa per la longitudine
+		if(pos.lng < 1*10000000)
+			Relevant = "0000" + pos.lng;
+		else if(pos.lng < 10*10000000)
+			Relevant = "000" + pos.lng;
+		else if(pos.lng < 100*10000000)
+			Relevant = "00" + pos.lng;
+		else 
+			Relevant = "0" +pos.lng;
+		
+		}else if (pos.lng < 0 ){
+		if((-pos.lng) < 1*10000000)
+			Relevant = "-000" + (-pos.lng);
+		else if(-pos.lng < 10*10000000)
+			Relevant = "-00" + (-pos.lng);
+		else if(-pos.lng < 100*10000000)
+			Relevant = "-0" + (-pos.lng);
+		else 
+			Relevant = "-" +(-pos.lng);
+		
+		}
+		Answer = Answer + Relevant;
+		Answer = Answer + 'l';
+		
+		Status = 4;
+	
+	}else if(Data == "start"&& Status == 4 ){
+		Answer = "yes";
+		Status = 5;
+	
+	}else 
+		Answer = "nope";
+		
+		
+}
 
 /*------ FUNZIONI DI LOOP -------*/
 
@@ -311,7 +464,6 @@ void newRoute(){
 	
 	
 }
-
 
 void PID(){
 	

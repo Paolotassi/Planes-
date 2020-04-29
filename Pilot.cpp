@@ -203,15 +203,19 @@ void loop(){
 	readAndProcessAccelData();  //dati dall'accelerometro
 	readCompassData(); //dati dalla bussola
 	
-	//INVIA TELEMETRIA
-  
+	//Invia telemetria
+	createTelemetry();
+	Send(Answer);
+	
 	newRoute();	//trova e segui la nuova rotta. N.B.: c'è un loop per cui non si passa alla prossima funzione finchè non si è in rotta 
 	loopTime= millis();
 	readGPS();  //trova la posizione attuale
   
 	PresentToPast(&pos, &posPast);  //salva la posizione pos in posPast
 	
-	//INVIA TELEMETRIA
+	//Invia telemetria
+	createTelemetry();
+	Send(Answer);
 
 	while( millis()-loopTime < DELAY  ) //aspetta per ottenere un intervallo DELAY tra 2 rilevamenti GPS
 		PID(); //mantiene una rotta stabile, secondo i parametri stabiliti da newRoute
@@ -223,8 +227,168 @@ void loop(){
 
 
 /*------ FUNZIONI DI TRASMISSIONE -------*/
+
 void createTelemetry(){
+	int x;
 	
+	Answer = 'f';
+	
+	//Waypoint
+	if(m < 10)
+			Relevant = "00" + m;
+		else if(m < 100)
+			Relevant = '0' + m;
+		else 
+			Relevant = m;
+		Answer = Answer + Relevant;
+	
+	//Velocità
+	if(speed < 10)
+			Relevant = "00" + speed;
+		else if(speed < 100)
+			Relevant = '0' + speed;
+		else 
+			Relevant = speed;
+		Answer = Answer + Relevant;
+	
+	//Altitudine
+	if(pos.alm < 10)
+			Relevant = "00" + pos.alm;
+		else if(pos.alm < 100)
+			Relevant = '0' + pos.alm;
+		else 
+			Relevant = pos.alm;
+		Answer = Answer + Relevant;
+		
+	//Rollio
+	if(angY >= 0){
+		if(angY < 10)
+				Relevant = "00" + angY;
+			else if(angY < 100)
+				Relevant = '0' + angY;
+			else 
+				Relevant = angY;
+			Answer = Answer + Relevant;
+	} else {	
+		if( (-angY) < 10)
+				Relevant = "00" + (-angY);
+			else if( (-angY) < 100)
+				Relevant = '0' + (-angY);
+			else 
+				Relevant = (-angY);
+			Answer = Answer + '-' + Relevant;		
+	}
+	
+	//Azione Servo rollio
+	x= posY * 4 - 90;	//così va da + a - 180, si visualizza meglio su labview
+	if(x >= 0){
+		if(x < 10)
+				Relevant = "00" + x;
+			else if(x < 100)
+				Relevant = '0' + x;
+			else 
+				Relevant = x;
+			Answer = Answer + Relevant;
+	} else {	
+		if( (-x) < 10)
+				Relevant = "00" + (-x);
+			else if( (-x) < 100)
+				Relevant = '0' + (-x);
+			else 
+				Relevant = (-x);
+			Answer = Answer + '-' + Relevant;		
+	}
+	
+	//Beccheggio
+	if(angX >= 0){
+		if(angX < 10)
+				Relevant = "00" + angX;
+			else if(angX < 100)
+				Relevant = '0' + angX;
+			else 
+				Relevant = angX;
+			Answer = Answer + Relevant;
+	} else {	
+		if( (-angX) < 10)
+				Relevant = "00" + (-angX);
+			else if( (-angX) < 100)
+				Relevant = '0' + (-angX);
+			else 
+				Relevant = (-angX);
+			Answer = Answer + '-' + Relevant;		
+	}
+	
+	//Azione Servo beccheggio
+	x= posX * 4 - 90;	//così va da + a - 180, si visualizza meglio su labview
+	if(x >= 0){
+		if(x < 10)
+				Relevant = "00" + x;
+			else if(x < 100)
+				Relevant = '0' + x;
+			else 
+				Relevant = x;
+			Answer = Answer + Relevant;
+	} else {	
+		if( (-x) < 10)
+				Relevant = "00" + (-x);
+			else if( (-x) < 100)
+				Relevant = '0' + (-x);
+			else 
+				Relevant = (-x);
+			Answer = Answer + '-' + Relevant;		
+	}
+	
+	//Latitudine
+	if (pos.lat > 0 ){
+		if(pos.lat < 1*10000000)
+			Relevant = "0000" + pos.lat;
+		else if(pos.lat < 10*10000000)
+			Relevant = "000" + pos.lat;
+		else if(pos.lat < 100*10000000)
+			Relevant = "00" + pos.lat;
+		else 
+			Relevant = '0' +pos.lat;
+		
+		}else if (pos.lat < 0 ){
+		if((-pos.lat) < 1*10000000)
+			Relevant = "-000" + (-pos.lat);
+		else if(-pos.lat < 10*10000000)
+			Relevant = "-00" + (-pos.lat);
+		else if(-pos.lat < 100*10000000)
+			Relevant = "-0" + (-pos.lat);
+		else 
+			Relevant = '-' +(-pos.lat);
+		
+		}
+		Answer = Answer + Relevant;
+	
+	//Longitudine
+	if (pos.lng > 0 ){	
+		if(pos.lng < 1*10000000)
+			Relevant = "0000" + pos.lng;
+		else if(pos.lng < 10*10000000)
+			Relevant = "000" + pos.lng;
+		else if(pos.lng < 100*10000000)
+			Relevant = "00" + pos.lng;
+		else 
+			Relevant = '0'	+pos.lng;
+		
+		}else if (pos.lng < 0 ){
+		if((-pos.lng) < 1*10000000)
+			Relevant = "-000" + (-pos.lng);
+		else if(-pos.lng < 10*10000000)
+			Relevant = "-00" + (-pos.lng);
+		else if(-pos.lng < 100*10000000)
+			Relevant = "-0" + (-pos.lng);
+		else 
+			Relevant = '-' +(-pos.lng);
+		
+		}
+		Answer = Answer + Relevant;
+	
+	Answer = Answer + 'l';
+	
+
 }
 
 void Send( String Answer ){
@@ -287,7 +451,7 @@ void Recieve(int i){
 		if(pos.alm < 10)
 			Relevant = "00" + pos.alm;
 		else if(pos.alm < 100)
-			Relevant = "0" + pos.alm;
+			Relevant = '0' + pos.alm;
 		else 
 			Relevant = pos.alm;
 		Answer = Answer + Relevant;
@@ -306,7 +470,7 @@ void Recieve(int i){
 		else if(pos.lat < 100*10000000)
 			Relevant = "00" + pos.lat;
 		else 
-			Relevant = "0" +pos.lat;
+			Relevant = '0' +pos.lat;
 		
 		}else if (pos.lat < 0 ){
 		if((-pos.lat) < 1*10000000)
@@ -316,7 +480,7 @@ void Recieve(int i){
 		else if(-pos.lat < 100*10000000)
 			Relevant = "-0" + (-pos.lat);
 		else 
-			Relevant = "-" +(-pos.lat);
+			Relevant = '-' +(-pos.lat);
 		
 		}
 		Answer = Answer + Relevant;
@@ -329,7 +493,7 @@ void Recieve(int i){
 		else if(pos.lng < 100*10000000)
 			Relevant = "00" + pos.lng;
 		else 
-			Relevant = "0" +pos.lng;
+			Relevant = '0'	+pos.lng;
 		
 		}else if (pos.lng < 0 ){
 		if((-pos.lng) < 1*10000000)
@@ -339,7 +503,7 @@ void Recieve(int i){
 		else if(-pos.lng < 100*10000000)
 			Relevant = "-0" + (-pos.lng);
 		else 
-			Relevant = "-" +(-pos.lng);
+			Relevant = '-' +(-pos.lng);
 		
 		}
 		Answer = Answer + Relevant;
@@ -485,7 +649,10 @@ void PID(){
 		
 		readAndProcessAccelData();  //dati dall'accelerometro
 		readCompassData(); //dati dalla bussola
-		//INVIA A PC DATI SU ORIENTAMENTO
+		
+		//Invia telemetria
+		createTelemetry();
+		Send(Answer);
 		
 		pidVariables();	//trova X e dirCompass
 
@@ -530,7 +697,9 @@ void PID(){
 		
 		while( (millis()-time) < (1000/SAMPLING_FREQ) ){ //aspetta per far sì che il ciclo duri il giusto
 			//non so se è un tempo sufficiente, ma in caso affermativo
-			//INVIA TELEMETRIA
+			//Invia telemetria
+			createTelemetry();
+			Send(Answer);
 		}
 	}
 

@@ -38,7 +38,9 @@ With 'f' and 'l' are two characters placed there to verify data integrity.
 Every number is sent as an integer, so ControlCenter needs to scale down the latitude and longitude 
 (the others are already integers to begin with)
 
-
+--INSTRUCTIONS--
+First, wait until the plane moves twice the control surfaces, with 1 sec. between the two.
+Then, you can start to follow the instructions displayed by ControlCenter
 
 
 

@@ -2,6 +2,9 @@
 //l'asse x va da sinistra a destra  
 //l'asse z va dal basso verso l'alto
 
+//CONNESSIONI
+
+
 #include "Arduino.h"
 #include <stdio.h>
 #include <Wire.h>
@@ -46,20 +49,20 @@
 /*------ STRUTTURE ---------*/
 
 typedef struct{
-	
-  long lat;   //latitudine
-  long lng;   //longitudine
-  int alm;    //altezza livello del mare
-  byte mode;   //come arrivare al waypoint
-  bool reached; //TRUE se sei arrivato al waypont
-  
+
+long lat;   //latitudine
+long lng;   //longitudine
+int alm;    //altezza livello del mare
+byte mode;   //come arrivare al waypoint
+bool reached; //TRUE se sei arrivato al waypont
+
 } Waypoint;
 
 typedef struct{
-	
-  long lat;   //latitudine
-  long lng;   //longitudine
-  int alm;    //altezza livello del mare
+
+long lat;   //latitudine
+long lng;   //longitudine
+int alm;    //altezza livello del mare
 
 } Position;
 
@@ -86,7 +89,7 @@ Position posPast; //posizione al ciclo precedente
 byte nSat=0;  //numero di satelliti connessi al GPS
 long GtoMLat=111136;  //conversione gradi->metri lungo un meridiano (1 deg= 111136 m)
 long GtoMLong=111322;   //conversione gradi->metri lungo un parallelo (1 deg= 111322 m all'equatore)
-            //NB: va moltiplicato per cos(latitudine)per latitudini diverse da 0
+		//NB: va moltiplicato per cos(latitudine)per latitudini diverse da 0
 
 //ACCELEROMETRO
 long accelX, accelY, accelZ;
@@ -111,8 +114,8 @@ Servo servoY;
 int posX = 90; //posizione servo. N.B.: prima di inviarle, va sottratto 90
 int posY = 90;
 int deX, deY; //movimento richiesto ai servo			
-			
-			
+		
+		
 //Dati sulla posizione			
 int speed; //velocità in metri al secondo
 int dir, dist;  //direzione effettiva dell'aereo e distanza percorsa (calcolate con la diff. tra 2 rilevamenti gps consecutivi)
@@ -132,33 +135,41 @@ int nWp;	//numero effettivo di waypoints
 
 RF22 rf22;
 TinyGPSPlus gps;
-SoftwareSerial ss(0,1); //da connettere a TX e RX rispettivamente 
+//SoftwareSerial ss(0,1); //da connettere a TX e RX rispettivamente 
 
 void setup() {
-  
+
+	//setup Servo
+	servoX.attach(8);
+	servoY.attach(9);
+	servoX.write(90);
+	servoY.write(90);
 	Serial.begin(9600);
+	Serial1.begin(9600);
 	Wire.begin();
 	//setup giroscopio-accelerometro
 	setUpMPU(); 
-  
+
 	//setup bussola
 	setUpCompass();
-  
+
 	for(int i=0; i<N; i++){  //azzera tutti i reached e i mode
-	wp[i].reached=0;
-	wp[i].mode=0;
+		wp[i].reached=0;
+		wp[i].mode=0;
 	}
-	
+
+	GPSReady();	//aspetta che il GPS sia connesso con almeno un tot di satelliti
+
 	//setup ricetrasmittente
 	rf22.init();
-	
+
 	//Status = 0 -> richiesta connessione
 	//Status = 1 -> ricevi numero waypoints
 	while (Status <2){	
 		Recieve(m);
 		Send(Answer);	
 	}
-	
+
 	//Status = 2 -> ricevi i waypoints
 	if (Status == 2){
 		for(int m=0; m<nWp ; m++){ 
@@ -166,53 +177,53 @@ void setup() {
 			Send(Answer);
 		}
 	}
-	
-	
-	//RICEVI RICHIESTA POSIZIONE INIZIALE
+
+
 	//setup GPS
-	Wire.begin(1);
-	Wire.onRequest(GPSReady);
+	//Wire.begin(1);
+	//Wire.onRequest(GPSReady);
+
 	readGPS();  //ricevi i dati dal GPS
-	
+
 	//INVIA POSIZIONE INIZIALE
 	if(Status == 3){
 		Recieve(m);
 		Send(Answer);
 	}
-	
+
 	//ASPETTA AUTORIZZAZIONE AL VOLO
 	if(Status == 4){
 		Recieve(m);
 		Send(Answer);
 	}
-	
+
 	//CONFERMA INIZIO VOLO. PASSA AL LOOP
 	if(Status != 5)
 		Send( "f00000000000000000000000000000000000000errorl" );
-	
+
 	m = 0; //azzera quest'indice, che deve essere usato anche nel loop
 }
 
 void loop(){
 	//Per come è strutturato, è molto probabile che il ciclo duri più di DELAY
 	//Quindi per il calcolo della velocità si usa la differenza tra loopTime e millis()
-  
+
 	readGPS();  //ricevi i dati dal GPS
 
 	SpeedDirection();	//trova velocità e direzione; decide se passare al waypoint successivo
 	readAndProcessAccelData();  //dati dall'accelerometro
 	readCompassData(); //dati dalla bussola
-	
+
 	//Invia telemetria
 	createTelemetry();
 	Send(Answer);
-	
+
 	newRoute();	//trova e segui la nuova rotta. N.B.: c'è un loop per cui non si passa alla prossima funzione finchè non si è in rotta 
 	loopTime= millis();
 	readGPS();  //trova la posizione attuale
-  
+
 	PresentToPast(&pos, &posPast);  //salva la posizione pos in posPast
-	
+
 	//Invia telemetria
 	createTelemetry();
 	Send(Answer);
@@ -230,36 +241,36 @@ void loop(){
 
 void createTelemetry(){
 	int x;
-	
+
 	Answer = 'f';
-	
+
 	//Waypoint
 	if(m < 10)
-			Relevant = "00" + m;
-		else if(m < 100)
-			Relevant = '0' + m;
-		else 
-			Relevant = m;
-		Answer = Answer + Relevant;
-	
+		Relevant = "00" + m;
+	else if(m < 100)
+		Relevant = '0' + m;
+	else 
+		Relevant = m;
+	Answer = Answer + Relevant;
+
 	//Velocità
 	if(speed < 10)
-			Relevant = "00" + speed;
-		else if(speed < 100)
-			Relevant = '0' + speed;
-		else 
-			Relevant = speed;
-		Answer = Answer + Relevant;
-	
+		Relevant = "00" + speed;
+	else if(speed < 100)
+		Relevant = '0' + speed;
+	else 
+		Relevant = speed;
+	Answer = Answer + Relevant;
+
 	//Altitudine
 	if(pos.alm < 10)
-			Relevant = "00" + pos.alm;
-		else if(pos.alm < 100)
-			Relevant = '0' + pos.alm;
-		else 
-			Relevant = pos.alm;
-		Answer = Answer + Relevant;
-		
+		Relevant = "00" + pos.alm;
+	else if(pos.alm < 100)
+		Relevant = '0' + pos.alm;
+	else 
+		Relevant = pos.alm;
+	Answer = Answer + Relevant;
+	
 	//Rollio
 	if(angY >= 0){
 		if(angY < 10)
@@ -278,7 +289,7 @@ void createTelemetry(){
 				Relevant = (-angY);
 			Answer = Answer + '-' + Relevant;		
 	}
-	
+
 	//Azione Servo rollio
 	x= posY * 4 - 90;	//così va da + a - 180, si visualizza meglio su labview
 	if(x >= 0){
@@ -298,7 +309,7 @@ void createTelemetry(){
 				Relevant = (-x);
 			Answer = Answer + '-' + Relevant;		
 	}
-	
+
 	//Beccheggio
 	if(angX >= 0){
 		if(angX < 10)
@@ -317,7 +328,7 @@ void createTelemetry(){
 				Relevant = (-angX);
 			Answer = Answer + '-' + Relevant;		
 	}
-	
+
 	//Azione Servo beccheggio
 	x= posX * 4 - 90;	//così va da + a - 180, si visualizza meglio su labview
 	if(x >= 0){
@@ -337,7 +348,7 @@ void createTelemetry(){
 				Relevant = (-x);
 			Answer = Answer + '-' + Relevant;		
 	}
-	
+
 	//Latitudine
 	if (pos.lat > 0 ){
 		if(pos.lat < 1*10000000)
@@ -349,7 +360,7 @@ void createTelemetry(){
 		else 
 			Relevant = '0' +pos.lat;
 		
-		}else if (pos.lat < 0 ){
+	}else if (pos.lat < 0 ){
 		if((-pos.lat) < 1*10000000)
 			Relevant = "-000" + (-pos.lat);
 		else if(-pos.lat < 10*10000000)
@@ -360,8 +371,8 @@ void createTelemetry(){
 			Relevant = '-' +(-pos.lat);
 		
 		}
-		Answer = Answer + Relevant;
-	
+	Answer = Answer + Relevant;
+
 	//Longitudine
 	if (pos.lng > 0 ){	
 		if(pos.lng < 1*10000000)
@@ -373,7 +384,7 @@ void createTelemetry(){
 		else 
 			Relevant = '0'	+pos.lng;
 		
-		}else if (pos.lng < 0 ){
+	}else if (pos.lng < 0 ){
 		if((-pos.lng) < 1*10000000)
 			Relevant = "-000" + (-pos.lng);
 		else if(-pos.lng < 10*10000000)
@@ -384,28 +395,28 @@ void createTelemetry(){
 			Relevant = '-' +(-pos.lng);
 		
 		}
-		Answer = Answer + Relevant;
-	
+	Answer = Answer + Relevant;
+
 	Answer = Answer + 'l';
-	
+
 
 }
 
 void Send( String Answer ){
-	
+
 	int len = sizeof(Answer);
-   uint8_t answer[len];
-   Answer.getBytes(answer, len);	//trasforma la strinfa Data in array di bytes
-  rf22.send(answer, sizeof(answer));
-    rf22.waitPacketSent();
-	
+	uint8_t answer[len];
+	Answer.getBytes(answer, len);	//trasforma la strinfa Data in array di bytes
+	rf22.send(answer, sizeof(answer));
+	rf22.waitPacketSent();
+
 }
 
 void Recieve(int i){
 	uint8_t data[buf_size];
 	rf22.waitAvailable();    
-    // Should be a message for us now   
-    rf22.recv(data, &buf_size);
+	// Should be a message for us now   
+	rf22.recv(data, &buf_size);
 	Data = (char*)data;
 	 
 	if(Data == "ready" && Status == 0){	//Controllo della connessione
@@ -420,20 +431,20 @@ void Recieve(int i){
 	}else if(Status == 2){	//Ricevi i Waypoints
 		Answer = (i+1);	
 		
-		Relevant = Answer.substring(1,11); //11 bytes
+		Relevant = Data.substring(1,11); //11 bytes
 		wp[i].lat = Relevant.toInt();
-			if (Answer[0] == '-')
+			if (Data[0] == '-')
 				wp[i].lat = - wp[i].lat; 
 			
-		Relevant = Answer.substring(12,22); //11 bytes
+		Relevant = Data.substring(12,22); //11 bytes
 		wp[i].lng = Relevant.toInt();
-			if (Answer[11] == '-')
+			if (Data[11] == '-')
 				wp[i].lng = - wp[i].lng; 
 			
-		Relevant = Answer.substring(22,25); //3 bytes
+		Relevant = Data.substring(22,25); //3 bytes
 		wp[i].alm = Relevant.toInt();
 		
-		Relevant = Answer.substring(25,26); //1 byte
+		Relevant = Data.substring(25,26); //1 byte
 		wp[i].mode = Relevant.toInt();
 		
 		if(i== nWp -1)	//aggiorna Status dopo aver caricato tutti i waypoints
@@ -510,133 +521,133 @@ void Recieve(int i){
 		Answer = Answer + 'l';
 		
 		Status = 4;
-	
+
 	}else if(Data == "start"&& Status == 4 ){
 		Answer = "yes";
 		Status = 5;
-	
+
 	}else 
 		Answer = "nope";
-		
-		
+	
+	
 }
 
 /*------ FUNZIONI DI LOOP -------*/
 
 void readGPS(){
-  while (ss.available() > 0){
-      gps.encode(ss.read());
-    
-      pos.lat=gps.location.lat()*10000000;
-      pos.lng=gps.location.lng()*10000000;
-      pos.alm=gps.altitude.meters();
-      nSat=gps.satellites.value();
-    
-    }
+	while (Serial1.available() > 0){
+		  gps.encode(Serial1.read());
+
+		  pos.lat=gps.location.lat()*10000000;
+		  pos.lng=gps.location.lng()*10000000;
+		  pos.alm=gps.altitude.meters();
+		  nSat=gps.satellites.value();
+
+	}
 
 }
 
 void readAndProcessAccelData() {
-  Wire.beginTransmission(0b1101000); 
-  Wire.write(0x3B); 
-  Wire.endTransmission();
-  Wire.requestFrom(0b1101000,6); 
-  while(Wire.available() < 6);
-  accelX = Wire.read()<<8|Wire.read(); 
-  accelY = Wire.read()<<8|Wire.read(); 
-  accelZ = Wire.read()<<8|Wire.read(); 
-  gForceX = accelX/16384.0;
-  gForceY = accelY/16384.0; 
-  gForceZ = accelZ/16384.0;
+	Wire.beginTransmission(0b1101000); 
+	Wire.write(0x3B); 
+	Wire.endTransmission();
+	Wire.requestFrom(0b1101000,6); 
+	while(Wire.available() < 6);
+	accelX = Wire.read()<<8|Wire.read(); 
+	accelY = Wire.read()<<8|Wire.read(); 
+	accelZ = Wire.read()<<8|Wire.read(); 
+	gForceX = accelX/16384.0;
+	gForceY = accelY/16384.0; 
+	gForceZ = accelZ/16384.0;
 
-  angX=atan(gForceY/sqrt(gForceZ*gForceZ + gForceX*gForceX) )*180/Pi;
-  angY=atan(-gForceX/sqrt(gForceZ*gForceZ + gForceY*gForceY) )*180/Pi;
-  if( gForceZ<0 && gForceX<0)
-    angY=180-angY;
-  else if( gForceZ<0 && gForceX>0)
-    angY=-180-angY;
+	angX=atan(gForceY/sqrt(gForceZ*gForceZ + gForceX*gForceX) )*180/Pi;
+	angY=atan(-gForceX/sqrt(gForceZ*gForceZ + gForceY*gForceY) )*180/Pi;
+	if( gForceZ<0 && gForceX<0)
+		angY=180-angY;
+	else if( gForceZ<0 && gForceX>0)
+		angY=-180-angY;
 }
 
 void readCompassData(){
-  Wire.beginTransmission(0x0D);
-  Wire.write(0x00);
-  Wire.endTransmission();
-  Wire.requestFrom(0x0D, 6);
-  compX = Wire.read(); //LSB  x
-  compX |= Wire.read() << 8; //MSB  x
-  compY = Wire.read(); //LSB  z
-  compY |= Wire.read() << 8; //MSB z
-  compZ = Wire.read(); //LSB y
-  compZ |= Wire.read() << 8; //MSB y
+	Wire.beginTransmission(0x0D);
+	Wire.write(0x00);
+	Wire.endTransmission();
+	Wire.requestFrom(0x0D, 6);
+	compX = Wire.read(); //LSB  x
+	compX |= Wire.read() << 8; //MSB  x
+	compY = Wire.read(); //LSB  z
+	compY |= Wire.read() << 8; //MSB z
+	compZ = Wire.read(); //LSB y
+	compZ |= Wire.read() << 8; //MSB y
 }
 
 void SpeedDirection(){
-	
+
 	dist = distanza(posPast.lat, posPast.lng, pos.lat, pos.lng, GtoMLat, GtoMLong, m);//distanza dal rilevamento precedente
 	speed = dist/(millis()-loopTime);	
 	if(dist>0)
 		dir = direzione(posPast.lat, posPast.lng, pos.lat, pos.lng, GtoMLat, GtoMLong, dist, m);//angolo col nord di un vettore posPast->pos
-  
+
 	distWp = distanza(pos.lat, pos.lng, wp[m].lat, wp[m].lng, GtoMLat, GtoMLong, m); //calcolo della distanza dal waypoint
 	if(distWp < errDist){ //se è stato raggiunto il waypoint, passa a quello successivo
 		wp[m].reached = 1;
 		m++;
 		distWp = distanza(pos.lat, pos.lng, wp[m].lat, wp[m].lng, GtoMLat, GtoMLong, m);
 	}//if
-	
-	
+
+
 }
 
 int distanza(long lat1, long lng1, long lat2, long lng2, long GtoMLat, long GtoMLong, int m){//misura la distanza tra 2 punti 
-  int deltaLat, deltaLong;
-  
-  deltaLat=(lat2 - lat1)*GtoMLat;
-  deltaLong=( lng2 - lng1 )*GtoMLong*( cos(lng2)+cos(lng1) )/2;
+	int deltaLat, deltaLong;
 
-  return sqrt( deltaLat*deltaLat + deltaLong*deltaLong );
+	deltaLat=((lat2 - lat1)/10000000)*GtoMLat;
+	deltaLong=(( lng2 - lng1 )/10000000)*GtoMLong*( cos(lng2)+cos(lng1) )/2;
+
+	return sqrt( deltaLat*deltaLat + deltaLong*deltaLong );
 }//distanza
 
 int direzione(long lat1, long lng1, long lat2, long lng2, long GtoMLat, long GtoMLong, int dist, int m){//calcola la rotta 
-  int deltaLat, deltaLong;
-  double arsin;
-  
-  deltaLat = ( lat2 - lat1 )*GtoMLat;
-  deltaLong = ( lng2 - lng1 )*GtoMLong*cos(lng2);
-  arsin = asin(deltaLat/dist) *180/Pi;
-  if(arsin >= 0)
-    return (acos(deltaLong/dist) *180/Pi);
-  else
-    return (-acos(deltaLong/dist) *180/Pi);
-  
+	int deltaLat, deltaLong;
+	double arsin;
+
+	deltaLat = ( lat2 - lat1 )*GtoMLat;
+	deltaLong = ( lng2 - lng1 )*GtoMLong*cos(lng2);
+	arsin = asin(deltaLat/dist) *180/Pi;
+	if(arsin >= 0)
+		return (acos(deltaLong/dist) *180/Pi);
+	else
+		return (-acos(deltaLong/dist) *180/Pi);
+
 }//distanza
 
 void newRoute(){
-	
+
 	if(wp[m].mode==1){        //rotta diretta per il waypoint
-    
-    XWp=asin((wp[m].alm - pos.alm)/dist)*180/Pi; //calcolo della rotta diretta verso il waypoint
-    YWp=0;                //non ci dovrebbe essere rollio
-    dirWp= direzione(pos.lat, pos.lng, wp[m].lat, wp[m].lng, GtoMLat, GtoMLong, distWp, m); //calcola la nuova rotta
-    deltaDir= dirWp - dir;
-    
-	PID();
-	
-	
-  }else if(wp[m].mode==2){
-  }else if(wp[m].mode==3){
-  }
-	
-	
+
+		XWp=asin((wp[m].alm - pos.alm)/dist)*180/Pi; //calcolo della rotta diretta verso il waypoint
+		YWp=0;                //non ci dovrebbe essere rollio
+		dirWp= direzione(pos.lat, pos.lng, wp[m].lat, wp[m].lng, GtoMLat, GtoMLong, distWp, m); //calcola la nuova rotta
+		deltaDir= dirWp - dir;
+
+		PID();
+
+
+	}else if(wp[m].mode==2){
+	}else if(wp[m].mode==3){
+	}
+
+
 }
 
 void PID(){
-	
-	//FUNZIONAMENTO:
-	//L'aereo non avrà un timone, quindi si possono controllare soltanto rollio (y) e beccheggio (x)
-	//Per cambiare rotta, l'aereo si inclina su un lato (quindi il rollio è anche proporzionale
-	//all'angolo tra rotta attuale e rotta desiderata)
-	//Questo abbassa il muso dell'aereo, che verrà quindi bilanciato dal controllore del beccheggio
-	
+
+//FUNZIONAMENTO:
+//L'aereo non avrà un timone, quindi si possono controllare soltanto rollio (y) e beccheggio (x)
+//Per cambiare rotta, l'aereo si inclina su un lato (quindi il rollio è anche proporzionale
+//all'angolo tra rotta attuale e rotta desiderata)
+//Questo abbassa il muso dell'aereo, che verrà quindi bilanciato dal controllore del beccheggio
+
 	pidVariables();	//trova X e dirCompass
 	deDir= dirCompass + deltaDir;  //la rotta a cui dirCompass dovrà essere uguale a fine ciclo
 	  
@@ -695,6 +706,9 @@ void PID(){
 		posX = 90 + deX;
 		posY = 90 + deY;
 		
+		servoX.write(posX);
+		servoY.write(posY);
+		
 		while( (millis()-time) < (1000/SAMPLING_FREQ) ){ //aspetta per far sì che il ciclo duri il giusto
 			//non so se è un tempo sufficiente, ma in caso affermativo
 			//Invia telemetria
@@ -706,19 +720,19 @@ void PID(){
 }
 
 void pidVariables(){
-  
-  newX = compX*cos(-angX*Pi/180) + compY*sin(-angY*Pi/180)*sin(angX*Pi/180) - compZ*cos(-angY*Pi/180)*sin(angX*Pi/180) ;  
-  newY = compY*cos(-angY*Pi/180) + compZ*sin(-angY*Pi/180) ;
-  dirCompass = atan2( newY, newX )*180/Pi;
-  
+
+	newX = compX*cos(-angX*Pi/180) + compY*sin(-angY*Pi/180)*sin(angX*Pi/180) - compZ*cos(-angY*Pi/180)*sin(angX*Pi/180) ;  
+	newY = compY*cos(-angY*Pi/180) + compZ*sin(-angY*Pi/180) ;
+	dirCompass = atan2( newY, newX )*180/Pi;
+
 }
 
 void PresentToPast(Position *pos, Position *posPast){//salva la posizione pos in posPast
-  
-  posPast->lat  = pos->lat ;
-  posPast->lng  = pos->lng ;
-  posPast->alm  = pos->alm ;
-  
+
+	posPast->lat  = pos->lat ;
+	posPast->lng  = pos->lng ;
+	posPast->alm  = pos->alm ;
+
 }//PresentToPast
 
 
@@ -728,51 +742,49 @@ void PresentToPast(Position *pos, Position *posPast){//salva la posizione pos in
 /*------ FUNZIONI DI SETUP -------*/
 
 void setUpMPU() {
-  // power management
-  Wire.beginTransmission(0b1101000);          // Start the communication by using address of MPU
-  Wire.write(0x6B);                           // Access the power management register
-  Wire.write(0b00000000);                     // Set sleep = 0
-  Wire.endTransmission();                     // End the communication
+	// power management
+	Wire.beginTransmission(0b1101000);          // Start the communication by using address of MPU
+	Wire.write(0x6B);                           // Access the power management register
+	Wire.write(0b00000000);                     // Set sleep = 0
+	Wire.endTransmission();                     // End the communication
 
-  // configure gyro
-  Wire.beginTransmission(0b1101000);
-  Wire.write(0x1B);                           // Access the gyro configuration register
-  Wire.write(0b00000000);
-  Wire.endTransmission();
+	// configure gyro
+	Wire.beginTransmission(0b1101000);
+	Wire.write(0x1B);                           // Access the gyro configuration register
+	Wire.write(0b00000000);
+	Wire.endTransmission();
 
-  // configure accelerometer
-  Wire.beginTransmission(0b1101000);
-  Wire.write(0x1C);                           // Access the accelerometer configuration register
-  Wire.write(0b00000000);
-  Wire.endTransmission();  
+	// configure accelerometer
+	Wire.beginTransmission(0b1101000);
+	Wire.write(0x1C);                           // Access the accelerometer configuration register
+	Wire.write(0b00000000);
+	Wire.endTransmission();  
 }
 
 void setUpCompass(){
-  WriteReg(0x0B,0x01);
-  //Define Set/Reset period
-  setMode(Mode_Continuous,ODR_200Hz,RNG_8G,OSR_512);
-}
-
-void WriteReg(byte Reg,byte val){
-  Wire.beginTransmission(0x0D); //start talking
-  Wire.write(Reg); // Tell the HMC5883 to Continuously Measure
-  Wire.write(val); // Set the Register
-  Wire.endTransmission();
-}
-
-void setMode(uint16_t mode,uint16_t odr,uint16_t rng,uint16_t osr){
-  WriteReg(0x09,mode|odr|rng|osr);
+	Wire.beginTransmission(0x0D); //start talking
+	Wire.write(0x02); // Set the Register
+	Wire.write(0x00); // Tell the HMC5883 to Continuously Measure
+	Wire.endTransmission();
 }
 
 void GPSReady(){
-  while (nSat<5){
-    while (ss.available() > 0){
-        gps.encode(ss.read());
-        nSat=gps.satellites.value();
-    
-      }
-  }
-  Wire.write(nSat);
+	while (nSat<5){//connesso con almeno 5 satelliti
+		while (Serial1.available() > 0){
+			gps.encode(Serial1.read());
+			nSat=gps.satellites.value();
+
+		  }
+	}
+
+	//fa un "saluto" con tutte le superfici di controllo
+	servoX.write(0);
+	servoY.write(0);
+	delay (1000);
+	servoX.write(90);
+	servoY.write(90);
+
+
 }
 
 

@@ -2,8 +2,8 @@
 --OVERVIEW--
 An arduino autopilot for a model airplane
 This system needs 2 Arduinos and a PC.
-With the chosen radio modules, the distance between the PC and the plane needs to be less than 1 km to recieve and transmitt telemetry or changes to the flight plan.
-Despite that, after the preflight procedures the plane can fly completely by itself at greater distances, although the operator won't recieve telemetry, and won't be able to modify the flight plan.
+With the chosen radio modules, the distance between the PC and the plane needs to be less than 1 km to recieve and transmitt data.
+Despite that, after the preflight procedures the plane can fly completely by itself at greater distances, although the operator won't recieve telemetry.
 
 --FLIGHT PLAN--
 The flight plan consists of a series of waypoints, designated by latitude, longitude, altitude, and mode.

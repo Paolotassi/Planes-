@@ -117,8 +117,8 @@ Waypoint wp[N];   //array che contiene il percorso stabilito
 int nWp;  //numero effettivo di waypoints
 
 
-//x è per DEBUG, va tolta sia qui che in readGPS!!
-int x = 0;
+//mnb è per DEBUG, va tolta sia qui che in createTel!!
+int mnb = 0;
 
 
 /*------ PROGRAMMA -------*/
@@ -257,6 +257,12 @@ void createTelemetry() {
   Relevant = "";
   Answer = 'f';
 
+  /*//DEBUG
+  pos.lng+=mnb;
+  pos.lat+=mnb;
+  mnb+=10;
+  //FINE DEBUG*/
+  
   //Waypoint
   if (m < 10)
     Relevant = "00" + String(m);
@@ -427,6 +433,8 @@ void Send( String Answer ) {
   Answer = (char*)answer;
   Serial.println(Answer);
   Answer = "";
+  Serial.print("# satelliti: ");
+  Serial.println(pos.nSat);
 }
 
 void Recieve(int i) {

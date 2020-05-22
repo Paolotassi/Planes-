@@ -9,7 +9,7 @@ Despite that, after the preflight procedures the plane can fly completely by its
 The flight plan consists of a series of waypoints, designated by latitude, longitude, altitude, and mode.
 -latitude, longitude: represented by whole deg. and then decimals (e.g.: 45.5°= 45°30'). They can have up to 7 decimals.
 -altitude: represented in meters.
--mode: specifies what the waypoint is: 1 is direct route, 2 is take off, 3 is landing, 4 is fly inverted, and we may add more 
+-mode: specifies what the waypoint is: 1 is direct route, 2 is take off, 3 is landing, 4 is barrel roll, and we may add more 
 
 --SETUP--
 An Arduino Mega is mounted on the plane, connected to the motor, servos, GPS, accelerometer, gyroscope, magnetic compass, and radio modules. We call it "Autopilot".

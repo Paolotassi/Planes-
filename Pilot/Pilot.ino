@@ -111,6 +111,7 @@ float distWp; //distanza effettiva dal waypoint
 float XWp, YWp, dirWp; //rotta diretta per il waypoint
 int errDist = 2; //distanza in metri dal waypoint al di sotto della quale il wp si considera raggiunto
 int deltaDir; //distanza angolare tra la rotta del momento e quella da seguire per arrivare al waypoint
+byte next = 0; //per mode che richiedono più passaggi (es. decollo, atterraggio) questo scorre tra i passaggi
 
 //Piano di volo
 Waypoint wp[N];   //array che contiene il percorso stabilito
@@ -210,6 +211,8 @@ void setup() {
     Send( "f000000000000000000000000000000000000000000errorl" );
 
   m = 0; //azzera quest'indice, che deve essere usato anche nel loop
+
+
 }
 
 void loop() {
@@ -583,8 +586,9 @@ void SpeedDirection() {
 
   distWp = distanza(pos.lat, pos.lng, wp[m].lat, wp[m].lng, GtoMLat, GtoMLong, m); //calcolo della distanza dal waypoint
   if (distWp < errDist) { //se è stato raggiunto il waypoint, passa a quello successivo
-    wp[m].reached = 1;
+    wp[m].reached = 1; 
     m++;
+    next = wp[m].mode;
     distWp = distanza(pos.lat, pos.lng, wp[m].lat, wp[m].lng, GtoMLat, GtoMLong, m);
   }//if
 
@@ -622,7 +626,7 @@ float direzione(long lat1, long lng1, long lat2, long lng2, long GtoMLat, long G
 
 void newRoute() {
 
-  if (wp[m].mode == 1) {    //rotta diretta per il waypoint
+  if (wp[m].mode == 1 || next ==1) {    //rotta diretta per il waypoint
 
     XWp = atan2((wp[m].alm - pos.alm) , distWp) * 180 / Pi; //calcolo della rotta diretta verso il waypoint
     YWp = 0;              //non ci dovrebbe essere rollio
@@ -639,11 +643,47 @@ void newRoute() {
     Serial.println(deltaDir);*/
     PID();
 
+  } else if (wp[m].mode == 2 || next == 2) {   //decollo
+    if ( pos.alm < wp[m].alm && next == 2 ){  //finchè non viene raggiunta la quota indicata
+      deltaDir = 0; //continua sulla tua rotta
+      XWp = 30; //inclinazione di 30 gradi, così da prendere quota
+      YWp = 0;              //non ci dovrebbe essere rollio
 
-  } else if (wp[m].mode == 2) {
-  } else if (wp[m].mode == 3) {
+      PID();
+    }
+    else 
+      next = 1; //si modifica mode
+ 
+  } else if (wp[m].mode == 3 || next == 3) {   //atterraggio
+      deltaDir = 0; //continua sulla tua rotta
+      XWp = -5;   //perde quota lentamente
+      YWp = 0;              //non ci dovrebbe essere rollio
+
+      PID();
+
+  } else if (wp[m].mode == 4 || next == 4){ //barrel roll
+
+      deltaDir = 0; //continua sulla tua rotta
+      XWp = 0;   //mantieni la quota
+      YWp = 120;             
+      PID();
+
+      deltaDir = 0; //continua sulla tua rotta
+      XWp = 0;   //mantieni la quota
+      YWp = 240;              
+      PID();
+
+      deltaDir = 0; //continua sulla tua rotta
+      XWp = 0;   //mantieni la quota
+      YWp = 0;              
+      PID();
+
+      next = 1;
+
+
+    
   }
-
+  
 
 }
 

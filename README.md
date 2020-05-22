@@ -40,9 +40,19 @@ Every number is sent as an integer, so ControlCenter needs to scale down the lat
 
 --INSTRUCTIONS--
 First, wait until the plane moves twice the control surfaces, with 1 sec. between the two.
-Then, you can start to follow the instructions displayed by ControlCenter
+Then, you can start to follow the instructions displayed by ControlCenter.
 
+--TAKE OFF--
+The plane must be pointed in the right direction, as it won't change course until the specified altitude is reached.
 
+--LAND--
+The landing function just stops the engine and glides down with a constant pitch angle. So, previous waypoints should be used 
+to alogn the plane to the runway, and to bring it at a low altitude.
+
+--AEROBATICS--
+Evey aerobatic mode will execute a specific maneuvre BEFORE reaching the waypoint. 
+So, in order to do the maneuvre in a specific point/altitude, you should specify those coordinates in the
+previous waypoint.
 
 
 

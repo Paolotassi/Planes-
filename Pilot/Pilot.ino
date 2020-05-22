@@ -87,10 +87,10 @@ float gForceX, gForceY, gForceZ;
 
 //PID
 int pid_X, pid_Y, pid_Z;  //valore dei PID
-int error;
+float error;
 float product, integral, i_accumulator_B, i_accumulator_I, i_accumulator_R;
 int deDir; //differenza tra l'angolo di un asse e l'angolo desiderato
-int dirCompass; //direzione secondo la bussola
+float dirCompass; //direzione secondo la bussola
 float newX, newY;
 
 
@@ -104,11 +104,11 @@ int deX, deY; //movimento richiesto ai servo
 
 //Dati sulla posizione
 int speed; //velocità in metri al secondo
-int dir, dist;  //direzione effettiva dell'aereo e distanza percorsa (calcolate con la diff. tra 2 rilevamenti gps consecutivi)
+float dir, dist;  //direzione effettiva dell'aereo e distanza percorsa (calcolate con la diff. tra 2 rilevamenti gps consecutivi)
 
 //Dati sulla rotta
-int distWp; //distanza effettiva dal waypoint
-int XWp, YWp, dirWp; //rotta diretta per il waypoint
+float distWp; //distanza effettiva dal waypoint
+float XWp, YWp, dirWp; //rotta diretta per il waypoint
 int errDist = 2; //distanza in metri dal waypoint al di sotto della quale il wp si considera raggiunto
 int deltaDir; //distanza angolare tra la rotta del momento e quella da seguire per arrivare al waypoint
 
@@ -219,31 +219,31 @@ void loop() {
   sensori.readGPS(&pos); //ricevi la posizione
 
   
-  Serial.println("1");
+  //Serial.println("1");
   SpeedDirection(); //trova velocità e direzione; decide se passare al waypoint successivo
   /*Serial.println("2");
   readAndProcessAccelData();  //dati dall'accelerometro
   Serial.println("3");
   readCompassData(); //dati dalla bussola*/
-  Serial.println("4");
+  //Serial.println("4");
   //Invia telemetria
   createTelemetry();
   Send(Answer);
-  Serial.println("5");
+  //Serial.println("5");
   newRoute(); //trova e segui la nuova rotta. N.B.: c'è un loop per cui non si passa alla prossima funzione finchè non si è in rotta
   loopTime = millis();
-  Serial.println("6");
+  //Serial.println("6");
   sensori.readGPS(&pos); //ricevi la posizione
-  Serial.println("7");
+  //Serial.println("7");
   PresentToPast(&pos, &posPast);  //salva la posizione pos in posPast
-  Serial.println("8");
+  //Serial.println("8");
   //Invia telemetria
   createTelemetry();
   Send(Answer);
-  Serial.println("9");
+  //Serial.println("9");
   while ( millis() - loopTime < DELAY  ) //aspetta per ottenere un intervallo DELAY tra 2 rilevamenti GPS
     PID(); //mantiene una rotta stabile, secondo i parametri stabiliti da newRoute
-  Serial.println("10");
+  //Serial.println("10");
 }//loop
 
 
@@ -423,18 +423,18 @@ void createTelemetry() {
 
 void Send( String Answer ) {
 
-  Serial.println("invio... ");
+  //Serial.println("invio... ");
   uint8_t answer[buf_size];
   Answer.getBytes(answer, buf_size);  //trasforma la stringa Answer in array di bytes
   /*rf22.send(answer, sizeof(answer));
     rf22.waitPacketSent(500);*/
   Radio.Send(answer, sizeof(answer));
-  Serial.print("inviato: ");
+  /*Serial.print("inviato: ");
   Answer = (char*)answer;
-  Serial.println(Answer);
+  Serial.println(Answer);*/
   Answer = "";
-  Serial.print("# satelliti: ");
-  Serial.println(pos.nSat);
+  /*Serial.print("# satelliti: ");
+  Serial.println(pos.nSat);*/
 }
 
 void Recieve(int i) {
@@ -449,9 +449,9 @@ void Recieve(int i) {
 
   Data = (char*)data;
   Serial.flush();
-  Serial.println(Data);
+  /*Serial.println(Data);
   Serial.print("status: ");
-  Serial.println(Status);
+  Serial.println(Status);*/
   if (Data == "ready" && Status == 0) { //Controllo della connessione
     Answer = "yes";
     Status = 1;
@@ -592,20 +592,26 @@ void SpeedDirection() {
 }
 
 int distanza(long lat1, long lng1, long lat2, long lng2, long GtoMLat, long GtoMLong, int m) { //misura la distanza tra 2 punti
-  int deltaLat, deltaLong;
+  float deltaLat, deltaLong;
 
-  deltaLat = ((lat2 - lat1) / 10000000) * GtoMLat;
-  deltaLong = (( lng2 - lng1 ) / 10000000) * GtoMLong * ( cos(lng2) + cos(lng1) ) / 2;
+  deltaLat = ((float)(lat2 - lat1) / 10000000) * GtoMLat;
+  deltaLong = ((float)( lng2 - lng1 ) / 10000000) * GtoMLong * ( cos((lng2/ 10000000)*Pi/180 ) + cos((lng1/ 10000000)*Pi/180 )) / 2;
 
   return sqrt( deltaLat * deltaLat + deltaLong * deltaLong );
 }//distanza
 
-int direzione(long lat1, long lng1, long lat2, long lng2, long GtoMLat, long GtoMLong, int dist, int m) { //calcola la rotta
-  int deltaLat, deltaLong;
-  double arsin;
+float direzione(long lat1, long lng1, long lat2, long lng2, long GtoMLat, long GtoMLong, float dist, int m) { //calcola la rotta
+  float deltaLat, deltaLong;
+  float arsin;
 
-  deltaLat = ( lat2 - lat1 ) * GtoMLat;
-  deltaLong = ( lng2 - lng1 ) * GtoMLong * cos(lng2);
+  deltaLat = (float)(( lat2 - lat1 ) * GtoMLat)/ 10000000;
+  deltaLong = (float)(((( lng2 - lng1 ) * GtoMLong)/ 10000000) * (float)cos(lng2/ 10000000));
+
+  /*Serial.print("deltaLat= ");
+  Serial.print(deltaLat);
+  Serial.print("  deltaLong= ");
+  Serial.println(deltaLong);*/
+  
   arsin = asin(deltaLat / dist) * 180 / Pi;
   if (arsin >= 0)
     return (acos(deltaLong / dist) * 180 / Pi);
@@ -618,11 +624,19 @@ void newRoute() {
 
   if (wp[m].mode == 1) {    //rotta diretta per il waypoint
 
-    XWp = asin((wp[m].alm - pos.alm) / dist) * 180 / Pi; //calcolo della rotta diretta verso il waypoint
+    XWp = atan2((wp[m].alm - pos.alm) , distWp) * 180 / Pi; //calcolo della rotta diretta verso il waypoint
     YWp = 0;              //non ci dovrebbe essere rollio
     dirWp = direzione(pos.lat, pos.lng, wp[m].lat, wp[m].lng, GtoMLat, GtoMLong, distWp, m); //calcola la nuova rotta
+    
     deltaDir = dirWp - dir;
-
+    if(deltaDir > 180)
+      deltaDir = -360 + deltaDir;
+    else  if(deltaDir < -180) 
+      deltaDir = 360 + deltaDir;
+    /*Serial.print("dirWp = ");
+    Serial.print(dirWp);
+    Serial.print("   deltaDir = ");
+    Serial.println(deltaDir);*/
     PID();
 
 
@@ -640,10 +654,34 @@ void PID() {
   //Per cambiare rotta, l'aereo si inclina su un lato (quindi il rollio è anche proporzionale
   //all'angolo tra rotta attuale e rotta desiderata)
   //Questo abbassa il muso dell'aereo, che verrà quindi bilanciato dal controllore del beccheggio
-
+  
+  int i=0;
+  
+  sensori.ReadSensors(&datiGrezzi); //prendi i dati dai sensori
   pidVariables(); //trova X e dirCompass
   deDir = dirCompass + deltaDir; //la rotta a cui dirCompass dovrà essere uguale a fine ciclo
 
+  Serial.println("FUORI DAL PID");
+/*
+Serial.print("XWp= ");
+    Serial.print(XWp);
+    Serial.print("  distWp= ");
+    Serial.print(distWp);
+    Serial.print("  dirWp= ");
+    Serial.print(dirWp);
+    Serial.print("  dirCompass= ");
+    Serial.print(dirCompass);
+    
+    Serial.print("  angX= ");
+    Serial.print(datiGrezzi.angX);
+    Serial.print("  angY= ");
+    Serial.print(datiGrezzi.angY);
+    
+    Serial.print("  PosX= ");
+    Serial.print(posX-90);
+    Serial.print("  PosY= ");
+    Serial.println(posY-90);*/
+    
   i_accumulator_B = 0;
   i_accumulator_R = 0;
   i_accumulator_I = 0;
@@ -651,12 +689,13 @@ void PID() {
   while ( (deDir - dirCompass) < -3 || (deDir - dirCompass) > 3 || (datiGrezzi.angX - XWp) < -3 || (datiGrezzi.angX - XWp) > 3 || (datiGrezzi.angY - YWp) < -3 || (datiGrezzi.angY - YWp) > 3) { //finchè la rotta è entro limiti accettabili
     time = millis();
 
+    i++;
     sensori.ReadSensors(&datiGrezzi);
     
 
-    //Invia telemetria
+    /*//Invia telemetria
     createTelemetry();
-    Send(Answer);
+    Send(Answer);*/
 
     pidVariables(); //trova X e dirCompass
 
@@ -676,9 +715,15 @@ void PID() {
     pid_Z = product + i_accumulator_I;
 
     //PID per rollio
-    error = error - datiGrezzi.angY; //il rollio aumenta con l'aumentare dell'errore dell'imbardata
-    product = P_B * error;
-    integral = I_B * error / SAMPLING_FREQ;
+    //pid_Z è limitato dal massimo rollio che ha senso dare all'aereo. Ora è +-60 gradi, ma si può ovviamente cambiare
+    if (pid_Z > 60)
+      pid_Z = 60;
+    else if (pid_Z < -60)
+      pid_Z = -60;
+      
+    error = (pid_Z + YWp) - datiGrezzi.angY; //il rollio aumenta con l'aumentare dell'errore dell'imbardata
+    product = P_R * error;
+    integral = I_R * error / SAMPLING_FREQ;
     i_accumulator_R += integral;
     pid_Y = product + i_accumulator_R;
 
@@ -690,7 +735,7 @@ void PID() {
     else if ( deX > 45 )
       deX = 45;
 
-    deY =  pid_Y + pid_Z;
+    deY =  pid_Y;
     if ( deY < -45 )
       deY = -45;
     else if ( deY > 45 )
@@ -699,19 +744,49 @@ void PID() {
     posX = 90 + deX;
     posY = 90 + deY;
 
-    Serial.print("PosX= ");
-    Serial.print(posX);
-    Serial.print("   PosY= ");
-    Serial.println(posY);
+
+    /*Serial.print("XWp= ");
+    Serial.print(XWp);
+    Serial.print("  dirWp= ");
+    Serial.print(dirWp);
+    Serial.print("  erroreRotta= ");
+    if(-deDir + dirCompass > 180)
+      Serial.print(-360 -deDir + dirCompass);
+    else  if(-deDir + dirCompass < -180) 
+      Serial.print(360 -deDir + dirCompass);
+    else
+       Serial.print(-deDir + dirCompass);
+       
+    Serial.print("  dirCompass= ");
+    Serial.print(dirCompass);
+    Serial.print("  angX= ");
+    Serial.print(datiGrezzi.angX);
+    Serial.print("  angY= ");
+    Serial.print(datiGrezzi.angY);
+    
+    Serial.print("  deX= ");
+    Serial.print(deX);
+    Serial.print("  deY= ");
+    Serial.print(deY);
+    Serial.print("  pid_Z= ");
+    Serial.println(pid_Z);*/
 
     servoX.write(posX);
     servoY.write(posY);
 
+    //azzera gli integrali dei controllori dopo "i" cicli
+    if(i>=100){
+      i=0;
+      i_accumulator_B = 0;
+      i_accumulator_R = 0;
+      i_accumulator_I = 0;
+    }
+      
     while ( (millis() - time) < (1000 / SAMPLING_FREQ) ) { //aspetta per far sì che il ciclo duri il giusto
       //non so se è un tempo sufficiente, ma in caso affermativo
-      //Invia telemetria
+     /* //Invia telemetria
       createTelemetry();
-      Send(Answer);
+      Send(Answer);*/
     }
   }
 

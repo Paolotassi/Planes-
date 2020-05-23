@@ -25,7 +25,7 @@
 #define N 20    //numero massimo di waypoints
 #define DUNO 10    //dimensione 1 di modeType
 #define DDUE 21    //dimensione 2 di modeType
-#define DTRE 6    //dimensione 3 di modeType
+#define DTRE 5    //dimensione 3 di modeType
 #define Pi 3.1415926 //costante pi greco
 #define DELAY 500  //intervallo MINIMO in millisecondi tra 2 cicli
 
@@ -172,7 +172,7 @@ void setup() {
   servoX.write(90);
   servoY.write(90);
 
-  //INSERISCI DA QUALCHE PARTE LA RICEZIONE DI MODETYPE
+
 
   //setup ricetrasmittente
   // if(!rf22.init())
@@ -197,26 +197,35 @@ void setup() {
     }
   }
 
+  //Ricevi i modeType
+  m=0;
+  while (Status == 3) {
+    Recieve(m);
+    delay(500);
+    Send(Answer);
+   m++; 
+  }
 
+  
   sensori.readGPS(&pos); //ricevi il primo pacco di dati
 
 
   //INVIA POSIZIONE INIZIALE
-  if (Status == 3) {
-    Recieve(m);
-    delay(500);
-    Send(Answer);
-  }
-
-  //ASPETTA AUTORIZZAZIONE AL VOLO
   if (Status == 4) {
     Recieve(m);
     delay(500);
     Send(Answer);
   }
 
+  //ASPETTA AUTORIZZAZIONE AL VOLO
+  if (Status == 5) {
+    Recieve(m);
+    delay(500);
+    Send(Answer);
+  }
+
   //CONFERMA INIZIO VOLO. PASSA AL LOOP
-  if (Status != 5)
+  if (Status != 6)
     Send( "f000000000000000000000000000000000000000000errorl" );
 
   m = 0; //azzera quest'indice, che deve essere usato anche nel loop
@@ -496,10 +505,31 @@ void Recieve(int i) {
     if (i == nWp - 1) //aggiorna Status dopo aver caricato tutti i waypoints
       Status = 3;
 
+  } else if (Status == 3) {//ricevi i modeType
+    if (Data == "end")
+      Status = 4;
+    else {
+      int x, y, z;
+      Relevant = Data.substring(1, 1); //1 byte
+      x = Relevant.toInt();
+      Relevant = Data.substring(2, 3); //2 bytes
+      y = Relevant.toInt();
+      Relevant = Data.substring(4, 7); //4 bytes
+      modeType[x][y][0] = Relevant.toInt();
+      Relevant = Data.substring(8, 11); //4 bytes
+      modeType[x][y][1] = Relevant.toInt();
+      Relevant = Data.substring(12, 15); //4 bytes
+      modeType[x][y][2] = Relevant.toInt();
+      Relevant = Data.substring(16, 17); //2 bytes
+      modeType[x][y][3] = Relevant.toInt();
+      Relevant = Data.substring(18, 21); //4 bytes
+      modeType[x][y][4] = Relevant.toInt();
+      
+    }
 
+    Answer = String(m);
 
-
-  } else if (Data == "info" && Status == 3) { //invia la prima stringa di dati
+  } else if (Data == "info" && Status == 4) { //invia la prima stringa di dati
 
 
 
@@ -571,11 +601,11 @@ void Recieve(int i) {
     Answer = Answer + 'l';
 
 
-    Status = 4;
-
-  } else if (Data == "start" && Status == 4 ) {
-    Answer = "yes";
     Status = 5;
+
+  } else if (Data == "start" && Status == 5 ) {
+    Answer = "yes";
+    Status = 6;
 
   } else
     Answer = "nope";

@@ -9,6 +9,7 @@ d) Angolo di rollio richiesto
 e) Deviazione richiesta dalla rotta attuale
 f) Tipo di condizione per il passaggio alla fase (o al waypoint) successiva
 g) Valore associato alla condizione f
+La prima riga deve essere "beginning", l'ultima riga deve essere "end", e non ci devono essere righe vuote
 
 Limitazioni:
 -'a' va da 1 a 9;

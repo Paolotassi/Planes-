@@ -81,6 +81,8 @@ void Sensori::GPSReady() {
 
 
 void Sensori::SetUp(){
+  Serial1.begin(9600);
+  Wire.begin();
   setUpMPU();
   setUpCompass();
   GPSReady();

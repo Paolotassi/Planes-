@@ -23,6 +23,9 @@
 //#include <RF22.h>
 
 #define N 20    //numero massimo di waypoints
+#define DUNO 10    //dimensione 1 di modeType
+#define DDUE 21    //dimensione 2 di modeType
+#define DTRE 6    //dimensione 3 di modeType
 #define Pi 3.1415926 //costante pi greco
 #define DELAY 500  //intervallo MINIMO in millisecondi tra 2 cicli
 
@@ -111,7 +114,9 @@ float distWp; //distanza effettiva dal waypoint
 float XWp, YWp, dirWp; //rotta diretta per il waypoint
 int errDist = 2; //distanza in metri dal waypoint al di sotto della quale il wp si considera raggiunto
 int deltaDir; //distanza angolare tra la rotta del momento e quella da seguire per arrivare al waypoint
-byte next = 0; //per mode che richiedono più passaggi (es. decollo, atterraggio) questo scorre tra i passaggi
+int modeType[DUNO][DDUE][DTRE]; //contiene i mode definiti dall'utilizzatore
+int d2=0;  //contatorie utilizzato per scorrere modeType
+
 
 //Piano di volo
 Waypoint wp[N];   //array che contiene il percorso stabilito
@@ -137,14 +142,25 @@ void setup() {
   servoY.attach(9);
   servoX.write(90);
   servoY.write(90);
-  Serial.begin(115200);
-  Serial1.begin(9600);
-  Wire.begin();
+  Serial.begin(115200);//serve solo finchè facciamo opere di debug
+  
 
   for (int i = 0; i < N; i++) { //azzera tutti i reached e i mode
       wp[i].reached = 0;
       wp[i].mode = 0;
   }
+
+  for (int i = 0; i < DUNO; i++) { //inizializza modeType
+    for (int j = 0; j < DDUE; j++) { 
+      for (int k = 0; k < DTRE; k++) { 
+        modeType[i][j][k]=0;
+        
+      
+      }
+    }
+  }
+
+
 
     //setup sensori
   sensori.SetUp();
@@ -155,15 +171,8 @@ void setup() {
   delay (1000);
   servoX.write(90);
   servoY.write(90);
-  /*//setup giroscopio-accelerometro
-  setUpMPU();
 
-  //setup bussola
-  setUpCompass();
-
-  
-
-  GPSReady(); //aspetta che il GPS sia connesso con almeno un tot di satelliti*/
+  //INSERISCI DA QUALCHE PARTE LA RICEZIONE DI MODETYPE
 
   //setup ricetrasmittente
   // if(!rf22.init())
@@ -580,16 +589,20 @@ void Recieve(int i) {
 void SpeedDirection() {
 
   dist = distanza(posPast.lat, posPast.lng, pos.lat, pos.lng, GtoMLat, GtoMLong, m);//distanza dal rilevamento precedente
+  dist = sqrt( dist*dist + (pos.alm - posPast.alm)*(pos.alm - posPast.alm)  );
   speed = dist / (millis() - loopTime);
   if (dist > 0)
     dir = direzione(posPast.lat, posPast.lng, pos.lat, pos.lng, GtoMLat, GtoMLong, dist, m);//angolo col nord di un vettore posPast->pos
 
   distWp = distanza(pos.lat, pos.lng, wp[m].lat, wp[m].lng, GtoMLat, GtoMLong, m); //calcolo della distanza dal waypoint
+  distWp = sqrt( distWp*distWp + (pos.alm - posPast.alm)*(pos.alm - posPast.alm)  );
+  
   if (distWp < errDist) { //se è stato raggiunto il waypoint, passa a quello successivo
     wp[m].reached = 1; 
     m++;
-    next = wp[m].mode;
+    d2=0;
     distWp = distanza(pos.lat, pos.lng, wp[m].lat, wp[m].lng, GtoMLat, GtoMLong, m);
+    distWp = sqrt( distWp*distWp + (pos.alm - wp[m].alm)*(pos.alm - wp[m].alm)  );
   }//if
 
 
@@ -625,67 +638,51 @@ float direzione(long lat1, long lng1, long lat2, long lng2, long GtoMLat, long G
 }//distanza
 
 void newRoute() {
+  
+  //Impostazione dei valori per il PID
+  if( modeType[wp[m].mode][d2][3] == 0 ){
 
-  if (wp[m].mode == 1 || next ==1) {    //rotta diretta per il waypoint
-
-    XWp = atan2((wp[m].alm - pos.alm) , distWp) * 180 / Pi; //calcolo della rotta diretta verso il waypoint
-    YWp = 0;              //non ci dovrebbe essere rollio
-    dirWp = direzione(pos.lat, pos.lng, wp[m].lat, wp[m].lng, GtoMLat, GtoMLong, distWp, m); //calcola la nuova rotta
+    XWp = asin((wp[m].alm - pos.alm) / distWp) * 180 / Pi; //calcolo della rotta diretta verso il waypoint
+    YWp = modeType[wp[m].mode][d2][1];
     
+    dirWp = direzione(pos.lat, pos.lng, wp[m].lat, wp[m].lng, GtoMLat, GtoMLong, distWp, m); //calcola la nuova rotta    
     deltaDir = dirWp - dir;
     if(deltaDir > 180)
       deltaDir = -360 + deltaDir;
     else  if(deltaDir < -180) 
       deltaDir = 360 + deltaDir;
-    /*Serial.print("dirWp = ");
-    Serial.print(dirWp);
-    Serial.print("   deltaDir = ");
-    Serial.println(deltaDir);*/
-    PID();
-
-  } else if (wp[m].mode == 2 || next == 2) {   //decollo
-    if ( pos.alm < wp[m].alm && next == 2 ){  //finchè non viene raggiunta la quota indicata
-      deltaDir = 0; //continua sulla tua rotta
-      XWp = 30; //inclinazione di 30 gradi, così da prendere quota
-      YWp = 0;              //non ci dovrebbe essere rollio
-
-      PID();
-    }
-    else 
-      next = 1; //si modifica mode
- 
-  } else if (wp[m].mode == 3 || next == 3) {   //atterraggio
-      deltaDir = 0; //continua sulla tua rotta
-      XWp = -5;   //perde quota lentamente
-      YWp = 0;              //non ci dovrebbe essere rollio
-
-      PID();
-
-  } else if (wp[m].mode == 4 || next == 4){ //barrel roll
-
-      deltaDir = 0; //continua sulla tua rotta
-      XWp = 0;   //mantieni la quota
-      YWp = 120;             
-      PID();
-
-      deltaDir = 0; //continua sulla tua rotta
-      XWp = 0;   //mantieni la quota
-      YWp = 240;              
-      PID();
-
-      deltaDir = 0; //continua sulla tua rotta
-      XWp = 0;   //mantieni la quota
-      YWp = 0;              
-      PID();
-
-      next = 1;
-
-
+    
+    
+  } else {
+    
+    XWp = modeType[wp[m].mode][d2][0];
+    YWp = modeType[wp[m].mode][d2][1];
+    deltaDir = modeType[wp[m].mode][d2][2];
     
   }
   
+  PID();
+
+  //verifica che le condizioni siano state raggiunte
+  sensori.readGPS(&pos); //ricevi la posizione
+  
+  if (modeType[wp[m].mode][d2][3] == 1){//se la condizione è raggiungere un'altezza
+    if(pos.alm >=(modeType[wp[m].mode][d2][4] - errDist) && pos.alm <= (modeType[wp[m].mode][d2][4] + errDist) ) 
+      d2++;
+  }else if (modeType[wp[m].mode][d2][3] == 2){//se la condizione è una distanza dal waypoint (compresa l'altezza)
+    float lontananza = distanza(pos.lat, pos.lng, wp[m].lat, wp[m].lng, GtoMLat, GtoMLong, m);
+    lontananza = sqrt( lontananza*lontananza + (pos.alm - wp[m].alm)*(pos.alm - wp[m].alm)  );
+    if(lontananza >=(modeType[wp[m].mode][d2][4] - errDist) && lontananza <= (modeType[wp[m].mode][d2][4] + errDist) ) 
+      d2++;
+  }else if (modeType[wp[m].mode][d2][3] == 3){//se la condizione è una distanza dal waypoint (senza contare l'altezza)
+    float lontananza = distanza(pos.lat, pos.lng, wp[m].lat, wp[m].lng, GtoMLat, GtoMLong, m);
+    if(lontananza >=(modeType[wp[m].mode][d2][4] - errDist) && lontananza <= (modeType[wp[m].mode][d2][4] + errDist) ) 
+      d2++;
+  }
+
 
 }
+
 
 void PID() {
 

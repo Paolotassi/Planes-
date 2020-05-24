@@ -1,0 +1,68 @@
+﻿--WAYPOINTS--
+aaaaaaaaaaa bbbbbbbbbbb cccc dd
+
+Significano:
+a) Latitudine (*10000000): espressa in gradi e decimali, tali che la settima cifra decimale sia l'11 carattere di a
+b) Longitudine (*10000000): espressa in gradi e decimali, tali che la settima cifra decimale sia l'11 carattere di a
+c) Altitudine: espressa in metri sul livello del mare
+d) Mode: indica la sequenza di manovre che deve essere eseguita per raggiungere il waypoint
+
+Limitazioni:
+-'a' va da -0900000000 a 00900000000 (cioè da -90° a +90°)
+-'b' va da -1800000000 a 01800000000 (cioè da -180° a +180°)
+-'c' va da 0 a 1000 (metri sul livello del mare)
+-'d' va da 0 a 99, ma se il valore non è definito nella sezione "modeType" si considera volo diretto 
+ (in modeType sarebbe 'XX 00 0000 0000 0000 00 0000')
+
+
+--MODETYPE--
+aa bb cccc dddd eeee ff gggg
+
+Significano:
+a) Numero di mode a cui quella riga è associata (non si può mettere 0)
+b) Fase di quella mode a cui quella riga è associata (conta anche lo 0)
+c) Angolo di beccheggio richiesto
+d) Angolo di rollio richiesto
+e) Deviazione richiesta dalla rotta attuale
+f) Tipo di condizione per il passaggio alla fase (o al waypoint) successiva
+g) Valore associato alla condizione f
+La prima riga deve essere "beginning", l'ultima riga deve essere "end", e non ci devono essere righe vuote
+
+Limitazioni:
+-'a' va da 1 a 20, per limitazioni della memoria di Arduino;
+-'b' va da 0 a 21, per limitazioni della memoria di Arduinom ma i valori tra massimo e minimo devono esserci tutti 
+ (es. un waypoint con b = 1, 3, 4, 2 è valido, ma b= 3, 27 no). Vengono eseguiti in ordine crescente, non nell'ordine con cui sono stati inseriti nel file;
+-'c','d','e' vanno da -999 a 9999, ma visto che i valori sono in gradi ha senso usare soltanto i valori da -180 a +180 
+ (es. se si imposta 450, l'aereo legge 90);
+-'f' va da 0 a 99, ma è fondamentale limitarsi soltanto ai valori che vedremo di seguito;
+-'g' ha lo stesso range di valori di 'c','d' ed 'e', ma i valori utili dipendono dalla condizione ('f') scelta.
+
+Condizioni ('f') e valori ammessi ('g'):
+
+IMPORTANTE! Le condizioni DEVONO poter essere raggiungibili in base alle impostazioni della fase corrente
+
+-f= 0 : raggiungimento del waypoint: è l'unico caso in cui 'c' ed 'e' non sono presi in considerazione 
+	valori di 'g': indifferente (consigliabile lasciare 0000)
+-f= 1 : raggiungimento di un'altezza (in metri sul livello del mare)
+	valori di 'g': da 0 a 9999 (consigliabile che sia maggiore di quella di partenza e, ovviamente, raggiungibile dall'aereo)
+-f= 2 : distanza dal waypoint, tenendo conto della differenza di altezza (in metri)
+	valori di 'g': da 0 a 9999 (consigliabile che sia minore della distanza tra il waypoint precedente e quello corrente)
+-f= 3 : distanza dal waypoint, senza tenere conto della differenza di altezza (in metri)
+	valori di 'g': da 0 a 9999 (consigliabile che sia minore della distanza tra il waypoint precedente e quello corrente)
+
+
+--PID--
+aaaa bbbb cccc dddd eeee ffff gggg
+
+Significano:
+a) Proporzionale beccheggio
+b) Integrale beccheggio
+c) Proporzionale rollio
+d) Integrale rollio
+e) Proporzionale imbardata
+f) Integrale imbardata
+g) Frequenza di campionamento
+
+Limitazioni:
+-'a','b','c','d','e','f': vanno da 0 a 99,99: sono moltiplicate per 100, per cui per scrivere "1" va scritto "0100"
+-'g': va da 0 a 9999, ma la frequenza consigliata è attorno a 100

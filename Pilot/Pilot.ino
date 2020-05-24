@@ -23,7 +23,7 @@
 //#include <RF22.h>
 
 #define N 20    //numero massimo di waypoints
-#define DUNO 10    //dimensione 1 di modeType
+#define DUNO 21    //dimensione 1 di modeType
 #define DDUE 21    //dimensione 2 di modeType
 #define DTRE 5    //dimensione 3 di modeType
 #define Pi 3.1415926 //costante pi greco
@@ -31,14 +31,6 @@
 
 
 
-/*------ COSTANTI PID -------*/
-#define  P_B       1 //cost. proporzionale del beccheggio
-#define I_B       1 //cost. integrale del beccheggio
-#define P_R       1 //cost. proporzionale del rollio 
-#define I_R       1 //cost. integrale del rollio
-#define P_I       1 //cost. proporzionale dell'imbardata
-#define I_I       1 //cost. integrale dell'imbardata
-#define SAMPLING_FREQ 100 //frequenza di campionamento
 
 /*------ STRUTTURE ---------*/
 
@@ -87,6 +79,15 @@ float gForceX, gForceY, gForceZ;
 
 //BUSSOLA
 //int compX, compY, compZ;  //misura del campo magnetico
+
+/*------ COSTANTI PID -------*/
+float P_B;        //cost. proporzionale del beccheggio
+float I_B;        //cost. integrale del beccheggio
+float P_R;        //cost. proporzionale del rollio 
+float I_R;        //cost. integrale del rollio
+float P_I;        //cost. proporzionale dell'imbardata
+float I_I;        //cost. integrale dell'imbardata
+int SAMPLING_FREQ;  //frequenza di campionamento
 
 //PID
 int pid_X, pid_Y, pid_Z;  //valore dei PID
@@ -181,31 +182,36 @@ void setup() {
   
 
   //Status = 0 -> richiesta connessione
-  //Status = 1 -> ricevi numero waypoints
-  while (Status < 2) {
+  while (Status ==0) {
     Recieve(m);
     delay(500);
     Send(Answer);
   }
 
-  //Status = 2 -> ricevi i waypoints
-  if (Status == 2) {
-    for (int m = 0; m < nWp ; m++) {
-      Recieve(m);
-      delay(500);
-      Send(Answer);
-    }
-  }
-
-  //Ricevi i modeType
+  //Status = 1 -> ricevi i waypoints
   m=0;
-  while (Status == 3) {
+  while (Status == 1) {
     Recieve(m);
     delay(500);
     Send(Answer);
    m++; 
   }
 
+  //Ricevi i modeType
+  while (Status == 2) {
+    Recieve(m);
+    delay(500);
+    Send(Answer);
+   m++; 
+  }
+
+  //Ricevi le costanti PID
+  while (Status == 3) {
+    Recieve(m);
+    delay(500);
+    Send(Answer);
+   m++; 
+  }
   
   sensori.readGPS(&pos); //ricevi il primo pacco di dati
 
@@ -478,13 +484,8 @@ void Recieve(int i) {
     Status = 1;
 
 
-  } else if (Status == 1) { //Ricevi il numero di Waypoints
-    Answer = Data;
-    Status = 2;
-    nWp = Answer.toInt();
-
-  } else if (Status == 2) { //Ricevi i Waypoints
-    Answer = (i + 1);
+  } else if (Status == 1) { //Ricevi i Waypoints
+    Answer = (i);
 
     Relevant = Data.substring(1, 11); //11 bytes
     wp[i].lat = Relevant.toInt();
@@ -496,39 +497,74 @@ void Recieve(int i) {
     if (Data[11] == '-')
       wp[i].lng = - wp[i].lng;
 
-    Relevant = Data.substring(22, 25); //3 bytes
+    Relevant = Data.substring(23, 26); //4 bytes
     wp[i].alm = Relevant.toInt();
 
-    Relevant = Data.substring(25, 26); //1 byte
+    Relevant = Data.substring(27, 28); //2 bytes
     wp[i].mode = Relevant.toInt();
 
-    if (i == nWp - 1) //aggiorna Status dopo aver caricato tutti i waypoints
-      Status = 3;
+    if (Data == "modeType") //aggiorna Status dopo aver caricato tutti i waypoints
+      Status = 2;
 
-  } else if (Status == 3) {//ricevi i modeType
-    if (Data == "end")
-      Status = 4;
+  } else if (Status == 2) {//ricevi i modeType
+    if (Data == "pid")
+      Status = 3;
     else {
       int x, y, z;
-      Relevant = Data.substring(1, 1); //1 byte
+      Relevant = Data.substring(1, 2); //2 bytes
       x = Relevant.toInt();
-      Relevant = Data.substring(2, 3); //2 bytes
+      Relevant = Data.substring(3, 4); //2 bytes
       y = Relevant.toInt();
-      Relevant = Data.substring(4, 7); //4 bytes
+      Relevant = Data.substring(5, 8); //4 bytes
       modeType[x][y][0] = Relevant.toInt();
-      Relevant = Data.substring(8, 11); //4 bytes
+      Relevant = Data.substring(9, 112); //4 bytes
       modeType[x][y][1] = Relevant.toInt();
-      Relevant = Data.substring(12, 15); //4 bytes
+      Relevant = Data.substring(13, 16); //4 bytes
       modeType[x][y][2] = Relevant.toInt();
-      Relevant = Data.substring(16, 17); //2 bytes
+      Relevant = Data.substring(17, 18); //2 bytes
       modeType[x][y][3] = Relevant.toInt();
-      Relevant = Data.substring(18, 21); //4 bytes
+      Relevant = Data.substring(19, 22); //4 bytes
       modeType[x][y][4] = Relevant.toInt();
       
     }
 
-    Answer = String(m);
+    Answer = String(i);
+    
+   } else if (Status == 3) {//ricevi le costanti pid
+     if (Data == "end")
+        Status = 4;
+    else{
+      float x;
+      Relevant = Data.substring(1, 4); //4 bytes
+      x = Relevant.toInt();
+      P_B = x/100;
 
+      Relevant = Data.substring(5, 8); //4 bytes
+      x = Relevant.toInt();
+      I_B = x/100;
+
+      Relevant = Data.substring(9, 12); //4 bytes
+      x = Relevant.toInt();
+      P_R = x/100;
+
+      Relevant = Data.substring(13,16); //4 bytes
+      x = Relevant.toInt();
+      I_R = x/100;
+
+      Relevant = Data.substring(17, 20); //4 bytes
+      x = Relevant.toInt();
+      P_I = x/100;
+
+      Relevant = Data.substring(21, 24); //4 bytes
+      x = Relevant.toInt();
+      I_I = x/100;
+
+      Relevant = Data.substring(25, 28); //4 bytes
+      x = Relevant.toInt();
+      SAMPLING_FREQ = x;
+      
+    }
+    
   } else if (Data == "info" && Status == 4) { //invia la prima stringa di dati
 
 

@@ -6,10 +6,14 @@ With the chosen radio modules, the distance between the PC and the plane needs t
 Despite that, after the preflight procedures the plane can fly completely by itself at greater distances, although the operator won't recieve telemetry.
 
 --FLIGHT PLAN--
-The flight plan consists of a series of waypoints, designated by latitude, longitude, altitude, and mode.
+The flight plan file consists of a series of waypoints, modeTypes, and PID constants.
+The Waypoints are designated by latitude, longitude, altitude, and mode.
 -latitude, longitude: represented by whole deg. and then decimals (e.g.: 45.5°= 45°30'). They can have up to 7 decimals.
 -altitude: represented in meters.
--mode: specifies what the waypoint is: 1 is direct route, 2 is take off, 3 is landing, 4 is barrel roll, and we may add more 
+-mode: specifies what the waypoint is: 1 is direct route, 2 is take off, 3 is landing, 4 is barrel roll, and we may add more. 
+The modetypes indicate the series of maneuvres that the plane must do before reaching the waypoint.
+The PID constants regulates the plane control surfaces.
+
 
 --SETUP--
 An Arduino Mega is mounted on the plane, connected to the motor, servos, GPS, accelerometer, gyroscope, magnetic compass, and radio modules. We call it "Autopilot".

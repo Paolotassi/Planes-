@@ -23,8 +23,8 @@
 //#include <RF22.h>
 
 #define N 20    //numero massimo di waypoints
-#define DUNO 21    //dimensione 1 di modeType
-#define DDUE 21    //dimensione 2 di modeType
+#define DUNO 10    //dimensione 1 di modeType
+#define DDUE 10 //dimensione 2 di modeType
 #define DTRE 5    //dimensione 3 di modeType
 #define Pi 3.1415926 //costante pi greco
 #define DELAY 500  //intervallo MINIMO in millisecondi tra 2 cicli
@@ -103,6 +103,8 @@ Servo servoX;
 Servo servoY;
 int posX = 90; //posizione servo. N.B.: prima di inviarle, va sottratto 90
 int posY = 90;
+int prevposX = 0; //posizione vecchia servo.
+int prevposY = 0;
 int deX, deY; //movimento richiesto ai servo
 
 
@@ -139,18 +141,22 @@ Sensori sensori;
 void setup() {
 
   //setup Servo
-  servoX.attach(8);
-  servoY.attach(9);
-  servoX.write(90);
-  servoY.write(90);
+  servoX.attach(10);
+  servoY.attach(11);
+  //servoPos (prevposX, posX);
+  //servoPos (prevposY, posY);
+  servoX.write(posX);
+  servoY.write(posY);
+  prevposX = posX;
+  prevposY = posY;
   Serial.begin(115200);//serve solo finchè facciamo opere di debug
   
-
+  //Serial.println("1");
   for (int i = 0; i < N; i++) { //azzera tutti i reached e i mode
       wp[i].reached = 0;
       wp[i].mode = 0;
   }
-
+  //Serial.println("2");
   for (int i = 0; i < DUNO; i++) { //inizializza modeType
     for (int j = 0; j < DDUE; j++) { 
       for (int k = 0; k < DTRE; k++) { 
@@ -161,18 +167,28 @@ void setup() {
     }
   }
 
-
+//Serial.println("3");
 
     //setup sensori
   sensori.SetUp();
+  //Serial.println("4");
 
   //fa un "saluto" con tutte le superfici di controllo: avvisa che si può iniziare a trasmettere
-  servoX.write(0);
-  servoY.write(0);
+  /*servoPos (prevposX, 0);
+  servoPos (prevposY, 0);
+  prevposX = 0;
+  prevposY = 0;
+  
   delay (1000);
+  servoPos (prevposX, 90);
+  servoPos (prevposY, 90);
+  prevposX = 90;
+  prevposY = 90;*/
+  servoX.write(5);
+  servoY.write(5);
+  delay(1000);
   servoX.write(90);
   servoY.write(90);
-
 
 
   //setup ricetrasmittente
@@ -184,7 +200,7 @@ void setup() {
   //Status = 0 -> richiesta connessione
   while (Status ==0) {
     Recieve(m);
-    delay(500);
+    //delay(500);
     Send(Answer);
   }
 
@@ -192,7 +208,7 @@ void setup() {
   m=0;
   while (Status == 1) {
     Recieve(m);
-    delay(500);
+    //delay(500);
     Send(Answer);
    m++; 
   }
@@ -200,7 +216,7 @@ void setup() {
   //Ricevi i modeType
   while (Status == 2) {
     Recieve(m);
-    delay(500);
+    //delay(500);
     Send(Answer);
    m++; 
   }
@@ -208,7 +224,7 @@ void setup() {
   //Ricevi le costanti PID
   while (Status == 3) {
     Recieve(m);
-    delay(500);
+    //delay(500);
     Send(Answer);
    m++; 
   }
@@ -219,14 +235,14 @@ void setup() {
   //INVIA POSIZIONE INIZIALE
   if (Status == 4) {
     Recieve(m);
-    delay(500);
+    //delay(500);
     Send(Answer);
   }
 
   //ASPETTA AUTORIZZAZIONE AL VOLO
   if (Status == 5) {
     Recieve(m);
-    delay(500);
+    //delay(500);
     Send(Answer);
   }
 
@@ -246,28 +262,29 @@ void loop() {
   sensori.readGPS(&pos); //ricevi la posizione
 
   
-  //Serial.println("1");
+  Serial.println("1");
   SpeedDirection(); //trova velocità e direzione; decide se passare al waypoint successivo
-  /*Serial.println("2");
-  readAndProcessAccelData();  //dati dall'accelerometro
+  Serial.println("2");
+  /*readAndProcessAccelData();  //dati dall'accelerometro
   Serial.println("3");
   readCompassData(); //dati dalla bussola*/
   //Serial.println("4");
   //Invia telemetria
   createTelemetry();
   Send(Answer);
-  //Serial.println("5");
+  Serial.println("3");
   newRoute(); //trova e segui la nuova rotta. N.B.: c'è un loop per cui non si passa alla prossima funzione finchè non si è in rotta
+  Serial.println("4");
   loopTime = millis();
   //Serial.println("6");
   sensori.readGPS(&pos); //ricevi la posizione
-  //Serial.println("7");
+  Serial.println("5");
   PresentToPast(&pos, &posPast);  //salva la posizione pos in posPast
-  //Serial.println("8");
+  Serial.println("6");
   //Invia telemetria
   createTelemetry();
   Send(Answer);
-  //Serial.println("9");
+  //Serial.println("7");
   while ( millis() - loopTime < DELAY  ) //aspetta per ottenere un intervallo DELAY tra 2 rilevamenti GPS
     PID(); //mantiene una rotta stabile, secondo i parametri stabiliti da newRoute
   //Serial.println("10");
@@ -456,9 +473,9 @@ void Send( String Answer ) {
   /*rf22.send(answer, sizeof(answer));
     rf22.waitPacketSent(500);*/
   Radio.Send(answer, sizeof(answer));
-  /*Serial.print("inviato: ");
+  Serial.print("inviato: ");
   Answer = (char*)answer;
-  Serial.println(Answer);*/
+  Serial.println(Answer);
   Answer = "";
   /*Serial.print("# satelliti: ");
   Serial.println(pos.nSat);*/
@@ -475,6 +492,7 @@ void Recieve(int i) {
   Radio.Recieve(data);
 
   Data = (char*)data;
+    Serial.println(Data);
   Serial.flush();
   /*Serial.println(Data);
   Serial.print("status: ");
@@ -531,6 +549,7 @@ void Recieve(int i) {
     Answer = String(i);
     
    } else if (Status == 3) {//ricevi le costanti pid
+     Answer = String(i);
      if (Data == "end")
         Status = 4;
     else{
@@ -761,6 +780,8 @@ void PID() {
   int i=0;
   
   sensori.ReadSensors(&datiGrezzi); //prendi i dati dai sensori
+  sensori.readGPS(&pos); //ricevi la posizione
+
   pidVariables(); //trova X e dirCompass
   deDir = dirCompass + deltaDir; //la rotta a cui dirCompass dovrà essere uguale a fine ciclo
 
@@ -794,11 +815,11 @@ Serial.print("XWp= ");
 
     i++;
     sensori.ReadSensors(&datiGrezzi);
-    
+    sensori.readGPS(&pos); //ricevi la posizione
 
-    /*//Invia telemetria
+    //Invia telemetria
     createTelemetry();
-    Send(Answer);*/
+    Send(Answer);
 
     pidVariables(); //trova X e dirCompass
 
@@ -843,7 +864,9 @@ Serial.print("XWp= ");
       deY = -45;
     else if ( deY > 45 )
       deY = 45;
-
+      
+    //prevposX = posX;
+    //prevposY = posY;
     posX = 90 + deX;
     posY = 90 + deY;
 
@@ -873,7 +896,8 @@ Serial.print("XWp= ");
     Serial.print(deY);
     Serial.print("  pid_Z= ");
     Serial.println(pid_Z);*/
-
+    //servoPos (prevposX, posX);
+    //servoPos (prevposY, posY);
     servoX.write(posX);
     servoY.write(posY);
 
@@ -911,3 +935,11 @@ void PresentToPast(Position *pos, Position *posPast) { //salva la posizione pos 
   posPast->nSat = pos->nSat;
 
 }//PresentToPast
+/*
+void servoPos(int prev, int p){ 
+  for(int i=prev; i<p; i+=5){
+    servoX.write(i);
+    delay(5);
+  }
+  servoX.write(p);
+}*/

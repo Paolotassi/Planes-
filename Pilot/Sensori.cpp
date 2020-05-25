@@ -61,12 +61,13 @@ void Sensori::setUpCompass() {
 }
 
 void Sensori::GPSReady() {
-   int nSat=0;
-    while (nSat<5){//connesso con almeno 5 satelliti
+   int nSat=0, alm=0; 
+   
+    while (nSat<5 && alm==0){//connesso con almeno 5 satelliti
       while (Serial1.available() > 0){
           gps.encode(Serial1.read());
           nSat=gps.satellites.value();
-
+          alm=gps.altitude.meters();
         }
     }
     //Wire.write(nSat);
@@ -91,6 +92,8 @@ void Sensori::SetUp(){
 //DATA
 
 void Sensori::readGPS(Position *pos) {
+  if(Serial1.available() <= 0)
+    Serial.println("no signal");
   while (Serial1.available() > 0){
       gps.encode(Serial1.read());
       pos->lat=gps.location.lat()*10000000;
@@ -99,6 +102,7 @@ void Sensori::readGPS(Position *pos) {
       pos->nSat=gps.satellites.value();
 
     }
+    
   /*
   pos.lat = -1 * 10000000 + x * 1000000;
   pos.lng = 2 * 10000000 + x * 1000000;

@@ -83,16 +83,19 @@ float gForceX, gForceY, gForceZ;
 /*------ COSTANTI PID -------*/
 float P_B;        //cost. proporzionale del beccheggio
 float I_B;        //cost. integrale del beccheggio
+float D_B;        //cost. derivata del becheggio
 float P_R;        //cost. proporzionale del rollio 
 float I_R;        //cost. integrale del rollio
+float D_R;        //cost. derivata del rollio
 float P_I;        //cost. proporzionale dell'imbardata
 float I_I;        //cost. integrale dell'imbardata
+float D_I;        //cost. derivata dell'imbardata
 int SAMPLING_FREQ;  //frequenza di campionamento
 
 //PID
 int pid_X, pid_Y, pid_Z;  //valore dei PID
 float error;
-float product, integral, i_accumulator_B, i_accumulator_I, i_accumulator_R;
+float product, integral, derivative, i_accumulator_B, i_accumulator_I, i_accumulator_R;
 int deDir; //differenza tra l'angolo di un asse e l'angolo desiderato
 float dirCompass; //direzione secondo la bussola
 float newX, newY;
@@ -561,24 +564,36 @@ void Recieve(int i) {
       Relevant = Data.substring(5, 8); //4 bytes
       x = Relevant.toInt();
       I_B = x/100;
-
+      
       Relevant = Data.substring(9, 12); //4 bytes
       x = Relevant.toInt();
-      P_R = x/100;
+      D_B = x/100;
 
       Relevant = Data.substring(13,16); //4 bytes
       x = Relevant.toInt();
-      I_R = x/100;
+      P_R = x/100;
 
       Relevant = Data.substring(17, 20); //4 bytes
       x = Relevant.toInt();
-      P_I = x/100;
+      I_R = x/100;
 
       Relevant = Data.substring(21, 24); //4 bytes
       x = Relevant.toInt();
-      I_I = x/100;
+      D_R = x/100;
 
       Relevant = Data.substring(25, 28); //4 bytes
+      x = Relevant.toInt();
+      P_I = x/100;
+      
+      Relevant = Data.substring(29, 32); //4 bytes
+      x = Relevant.toInt();
+      I_I = x/100;
+      
+      Relevant = Data.substring(33, 36); //4 bytes
+      x = Relevant.toInt();
+      D_I = x/100;
+      
+      Relevant = Data.substring(37, 40); //4 bytes
       x = Relevant.toInt();
       SAMPLING_FREQ = x;
       
@@ -823,13 +838,15 @@ Serial.print("XWp= ");
 
     pidVariables(); //trova X e dirCompass
 
+    //VERIFICA BENE IL DERIVATIVE, E COME METTERLO IN IMBARDATA
 
     //PID per beccheggio
     error = XWp - datiGrezzi.angX;
     product = P_B * error;
+    derivative = D_B * datiGrezzi.gyroX;
     integral = I_B * error / SAMPLING_FREQ;
     i_accumulator_B += integral;
-    pid_X = product + i_accumulator_B;
+    pid_X = product + derivative + i_accumulator_B;
 
     //PID per imbardata
     error = deDir - dirCompass;
@@ -847,9 +864,10 @@ Serial.print("XWp= ");
       
     error = (pid_Z + YWp) - datiGrezzi.angY; //il rollio aumenta con l'aumentare dell'errore dell'imbardata
     product = P_R * error;
+    derivative = D_R * datiGrezzi.gyroY;
     integral = I_R * error / SAMPLING_FREQ;
     i_accumulator_R += integral;
-    pid_Y = product + i_accumulator_R;
+    pid_Y = product + derivative + i_accumulator_R;
 
 
     //posizione SERVO

@@ -133,6 +133,18 @@ void Sensori::readAndProcessAccelData(Dati *dati) {
     dati->angY = -180 - dati->angY;
 }
 
+void Sensori::readAndProcessGyroData(Dati *dati) {
+  Wire.beginTransmission(0b1101000);                          // Start the communication by using address of MPU 
+  Wire.write(0x43);                                           // Access the starting register of gyro readings
+  Wire.endTransmission();
+  Wire.requestFrom(0b1101000,6);                              // Request for 6 bytes from gyro registers (43 - 48)
+  while(Wire.available() < 6);                                // Wait untill all 6 bytes are available
+  dati->gyroX = Wire.read()<<8|Wire.read();                  // Store first two bytes into gyroX
+  dati->gyroY = Wire.read()<<8|Wire.read();                  // Store next two bytes into gyroY
+  dati->gyroZ = Wire.read()<<8|Wire.read();                  //Store last two bytes into gyroZ
+  
+}
+
 void Sensori::readCompassData(Dati *dati) {
   Wire.beginTransmission(0x0D);
   Wire.write(0x00);
@@ -148,5 +160,6 @@ void Sensori::readCompassData(Dati *dati) {
 
 void Sensori::ReadSensors(Dati *dati){
   readAndProcessAccelData(dati);
+  readAndProcessGyroData(dati);
   readCompassData(dati);
 }

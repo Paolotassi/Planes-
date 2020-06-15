@@ -52,17 +52,20 @@ IMPORTANTE! Le condizioni DEVONO poter essere raggiungibili in base alle imposta
 
 
 --PID--
-aaaa bbbb cccc dddd eeee ffff gggg
+aaaa bbbb cccc dddd eeee ffff gggg hhhh iiii jjjj
 
 Significano:
 a) Proporzionale beccheggio
 b) Integrale beccheggio
-c) Proporzionale rollio
-d) Integrale rollio
-e) Proporzionale imbardata
-f) Integrale imbardata
-g) Frequenza di campionamento
+c) Defferenziale beccheggio
+d) Proporzionale rollio
+e) Integrale rollio
+f) Defferenziale rollio
+g) Proporzionale imbardata
+h) Integrale imbardata
+i) Defferenziale imbardata
+j) Frequenza di campionamento
 
 Limitazioni:
--'a','b','c','d','e','f': vanno da 0 a 99,99: sono moltiplicate per 100, per cui per scrivere "1" va scritto "0100"
--'g': va da 0 a 9999, ma la frequenza consigliata è attorno a 100
+-'a','b','c','d','e','f', 'g', 'h', 'i': vanno da 0 a 99,99: sono moltiplicate per 100, per cui per scrivere "1" va scritto "0100"
+-'j': va da 0 a 9999, ma la frequenza consigliata è attorno a 100

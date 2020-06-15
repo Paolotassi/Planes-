@@ -14,6 +14,7 @@ typedef struct {
 
   
   int angX = 0, angY = 0; //rotazione attorno all'asse X, Y
+  int gyroX, gyroY, gyroZ;  //accelerazione angolare attorno agli assi
   int compX, compY, compZ;  //misura del campo magnetico
 
 } Dati;
@@ -40,6 +41,7 @@ class Sensori{
     void GPSReady();
     
     void readAndProcessAccelData(Dati *dati);
+    void readAndProcessGyroData(Dati *dati);
     void readCompassData(Dati *dati);
 };
 

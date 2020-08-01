@@ -28,8 +28,8 @@
 #define DTRE 5    //dimensione 3 di modeType
 #define Pi 3.1415926 //costante pi greco
 #define DELAY 500  //intervallo MINIMO in millisecondi tra 2 cicli
-
-
+#define errDist 2 //distanza in metri dal waypoint al di sotto della quale il wp si considera raggiunto
+#define errAng 2 //distanza in gradi dalla rotta indicata al di sotto del queale loa rotta si considera raggiunta
 
 
 /*------ STRUTTURE ---------*/
@@ -118,8 +118,13 @@ float dir, dist;  //direzione effettiva dell'aereo e distanza percorsa (calcolat
 //Dati sulla rotta
 float distWp; //distanza effettiva dal waypoint
 float XWp, YWp, dirWp; //rotta diretta per il waypoint
-int errDist = 2; //distanza in metri dal waypoint al di sotto della quale il wp si considera raggiunto
 int deltaDir; //distanza angolare tra la rotta del momento e quella da seguire per arrivare al waypoint
+/*modeType:
+UNO: numero del mode
+DUE: fase del mode
+TRE: angoli/tipo di condizione
+valore: valore della condizione
+*/
 int modeType[DUNO][DDUE][DTRE]; //contiene i mode definiti dall'utilizzatore
 int d2=0;  //contatorie utilizzato per scorrere modeType
 
@@ -738,6 +743,9 @@ float direzione(long lat1, long lng1, long lat2, long lng2, long GtoMLat, long G
 }//distanza
 
 void newRoute() {
+  sensori.ReadSensors(&datiGrezzi); //prendi i dati dai sensori
+  pidVariables(); //trova dirCompass
+  float startDir = dirCompass; //trova la direzione bussola di questo istante
   
   //Impostazione dei valori per il PID
   if( modeType[wp[m].mode][d2][3] == 0 ){
@@ -765,6 +773,7 @@ void newRoute() {
 
   //verifica che le condizioni siano state raggiunte
   sensori.readGPS(&pos); //ricevi la posizione
+  sensori.ReadSensors(&datiGrezzi); //prendi i dati dai sensori
   
   if (modeType[wp[m].mode][d2][3] == 1){//se la condizione è raggiungere un'altezza
     if(pos.alm >=(modeType[wp[m].mode][d2][4] - errDist) && pos.alm <= (modeType[wp[m].mode][d2][4] + errDist) ) 
@@ -777,6 +786,16 @@ void newRoute() {
   }else if (modeType[wp[m].mode][d2][3] == 3){//se la condizione è una distanza dal waypoint (senza contare l'altezza)
     float lontananza = distanza(pos.lat, pos.lng, wp[m].lat, wp[m].lng, GtoMLat, GtoMLong, m);
     if(lontananza >=(modeType[wp[m].mode][d2][4] - errDist) && lontananza <= (modeType[wp[m].mode][d2][4] + errDist) ) 
+      d2++;
+  }else if (modeType[wp[m].mode][d2][3] == 4){//se la condizione è un angolo di rollio
+    if( (YWp - datiGrezzi.angY >= -errAng) && (YWp - datiGrezzi.angY <= errAng) ) 
+      d2++;
+  }else if (modeType[wp[m].mode][d2][3] == 5){//se la condizione è un angolo di beccheggio
+    if( (XWp - datiGrezzi.angX >= -errAng) && (XWp - datiGrezzi.angX <= errAng) ) 
+      d2++;
+  }else if (modeType[wp[m].mode][d2][3] == 6){//se la condizione è Delta angolo di imbardata
+    pidVariables(); //trova dirCompass
+    if( (dirCompass - startDir) <= deltaDir + errAng && (dirCompass - startDir) >= deltaDir - errAng ) 
       d2++;
   }
 
@@ -836,7 +855,7 @@ Serial.print("XWp= ");
     createTelemetry();
     Send(Answer);
 
-    pidVariables(); //trova X e dirCompass
+    pidVariables(); //trova dirCompass
 
     //VERIFICA BENE IL DERIVATIVE, E COME METTERLO IN IMBARDATA
 
@@ -847,21 +866,26 @@ Serial.print("XWp= ");
     integral = I_B * error / SAMPLING_FREQ;
     i_accumulator_B += integral;
     pid_X = product + derivative + i_accumulator_B;
-
-    //PID per imbardata
-    error = deDir - dirCompass;
-    product = P_I * error;
-    integral = I_I * error / SAMPLING_FREQ;
-    i_accumulator_I += integral;
-    pid_Z = product + i_accumulator_I;
-
+    
+    if(modeType[wp[m].mode][d2][3]!=4){//se la condizione non è l'angolo di rollio  
+      //PID per imbardata
+      error = deDir - dirCompass;
+      product = P_I * error;
+      integral = I_I * error / SAMPLING_FREQ;
+      i_accumulator_I += integral;
+      pid_Z = product + i_accumulator_I;
+ 
+      //pid_Z è limitato dal massimo rollio che ha senso dare all'aereo. Ora è +-60 gradi, ma si può ovviamente cambiare
+      if (pid_Z > 60)
+        pid_Z = 60;
+      else if (pid_Z < -60)
+        pid_Z = -60;   
+   
+    }else{//se la condizione è il rollio, si ignora la deviazione dalla rotta
+      pid_Z = 0;
+    }
+    
     //PID per rollio
-    //pid_Z è limitato dal massimo rollio che ha senso dare all'aereo. Ora è +-60 gradi, ma si può ovviamente cambiare
-    if (pid_Z > 60)
-      pid_Z = 60;
-    else if (pid_Z < -60)
-      pid_Z = -60;
-      
     error = (pid_Z + YWp) - datiGrezzi.angY; //il rollio aumenta con l'aumentare dell'errore dell'imbardata
     product = P_R * error;
     derivative = D_R * datiGrezzi.gyroY;

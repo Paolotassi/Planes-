@@ -59,7 +59,7 @@ unsigned long wpTime = 0; //prende il tempo trascorso nella stessa mode di un wa
 String Data;      //stringa con il comando o dato ricevuto
 String Answer;    //stringa con telemetria (o altre risposte)
 String Relevant;  //sottostringa di Data, contiene solo i caratteri utili
-uint8_t buf_size = 50; //verifica a quanto impostare questo
+uint8_t buf_size = 55; //verifica a quanto impostare questo
 byte Status = 0;  //individua a che punto del Setup siamo. Permette di interpretare correttamente le trasmissioni
 
 //GPS
@@ -170,10 +170,9 @@ void setup() {
   for (int i = 0; i < DUNO; i++) { //inizializza modeType
     for (int j = 0; j < DDUE; j++) { 
       for (int k = 0; k < DTRE; k++) { 
-        modeType[i][j][k]=0;
-        
-      
+        modeType[i][j][k]=0;  
       }
+      modeType[i][j][3]=99;
     }
   }
 
@@ -222,7 +221,7 @@ void setup() {
     Send(Answer);
    m++; 
   }
-
+  
   //Ricevi i modeType
   while (Status == 2) {
     Recieve(m);
@@ -275,10 +274,9 @@ void loop() {
   Serial.println("1");
   SpeedDirection(); //trova velocità e direzione; decide se passare al waypoint successivo
   Serial.println("2");
-  if(wp[m+1].reached == 2 && speed == 0){//vedi se siamo atterrati
-    Send("f000000000000000000000000000000000000000000000errorl");
+  while(wp[m].reached == 2 && speed == 0){//vedi se siamo atterrati
+    Send("f000000000000000000000000000000000000000000000endedl");
     //spegni i motori
-    delay(1000000);
   }
   /*readAndProcessAccelData();  //dati dall'accelerometro
   Serial.println("3");
@@ -486,6 +484,7 @@ void createTelemetry() {
     Relevant = "0" + String(power);
   else
     Relevant = String(power);
+  Answer = Answer + Relevant;
   Answer = Answer + 'l';
 
 
@@ -691,8 +690,8 @@ void Recieve(int i) {
 
     }
     Answer = Answer + Relevant;
-    Answer = Answer + "000"; //aggiungi "power"
-    Answer = Answer + 'l';
+    Answer = Answer + "000l"; //aggiungi "power"
+    //Answer = Answer + 'l';
 
 
     Status = 5;
@@ -715,20 +714,24 @@ void SpeedDirection() {
   dist = distanza(posPast.lat, posPast.lng, pos.lat, pos.lng, GtoMLat, GtoMLong, m);//distanza dal rilevamento precedente
   dist = sqrt( dist*dist + (pos.alm - posPast.alm)*(pos.alm - posPast.alm)  );
   speed = dist / (millis() - loopTime);
-  if (dist > 0)
+  if (dist > 5)
     dir = direzione(posPast.lat, posPast.lng, pos.lat, pos.lng, GtoMLat, GtoMLong, dist, m);//angolo col nord di un vettore posPast->pos
-
+  else {
+    pidVariables();
+    dir = dirCompass;
+  }
+     
   distWp = distanza(pos.lat, pos.lng, wp[m].lat, wp[m].lng, GtoMLat, GtoMLong, m); //calcolo della distanza dal waypoint
   distWp = sqrt( distWp*distWp + (pos.alm - posPast.alm)*(pos.alm - posPast.alm)  );
   
-  if (distWp < errDist) { //se è stato raggiunto il waypoint, passa a quello successivo
+  if ( modeType[wp[m].mode][d2][3] == 99) { //se è stato raggiunto l'ultimo mode del waypoint, passa a quello successivo
     wp[m].reached = 1; 
     m++;
     d2=0;
     distWp = distanza(pos.lat, pos.lng, wp[m].lat, wp[m].lng, GtoMLat, GtoMLong, m);
     distWp = sqrt( distWp*distWp + (pos.alm - wp[m].alm)*(pos.alm - wp[m].alm)  );
     wpTime = millis();
-  }//if
+  }//ifr
 
 
 }
@@ -769,7 +772,6 @@ void newRoute() {
   
   //Impostazione dei valori per il PID
   //vengono impostati per il waypoint, poi in base il mode possono essere modificati
-
   XWp = asin((wp[m].alm - pos.alm) / distWp) * 180 / Pi; //calcolo della rotta diretta verso il waypoint
   //YWp = modeType[wp[m].mode][d2][1];
     
@@ -808,13 +810,13 @@ void newRoute() {
   }else if (modeType[wp[m].mode][d2][3] == 2){//se la condizione è una distanza dal waypoint (compresa l'altezza)
     float lontananza = distanza(pos.lat, pos.lng, wp[m].lat, wp[m].lng, GtoMLat, GtoMLong, m);
     lontananza = sqrt( lontananza*lontananza + (pos.alm - wp[m].alm)*(pos.alm - wp[m].alm)  );
-    if(lontananza >=(modeType[wp[m].mode][d2][4] - errDist) && lontananza <= (modeType[wp[m].mode][d2][4] + errDist) ){ 
+    if(lontananza <=(modeType[wp[m].mode][d2][4] + errDist) ){ 
       d2++;
       wpTime = millis();
     }
   }else if (modeType[wp[m].mode][d2][3] == 3){//se la condizione è una distanza dal waypoint (senza contare l'altezza)
     float lontananza = distanza(pos.lat, pos.lng, wp[m].lat, wp[m].lng, GtoMLat, GtoMLong, m);
-    if(lontananza >=(modeType[wp[m].mode][d2][4] - errDist) && lontananza <= (modeType[wp[m].mode][d2][4] + errDist) ){ 
+    if(lontananza <=(modeType[wp[m].mode][d2][4] + errDist) ){ 
       d2++;
       wpTime = millis();
     }
@@ -837,6 +839,8 @@ void newRoute() {
   }else if (modeType[wp[m].mode][d2][3] == 7){//se la condizione è regolare la potenza del motore
       //trova il modo di regolarla
       power = modeType[wp[m].mode][d2][4]; //è la % di potenza, va da 0 a 100
+      Serial.println("Power = ");
+      Serial.print(power);
       d2++;
       wpTime = millis();
   }else if (modeType[wp[m].mode][d2][3] == 8){//se la condizione è mantenere l'assetto per un tempo
@@ -850,7 +854,7 @@ void newRoute() {
 
 
 void PID() {
-
+  int timePID = millis();
   //FUNZIONAMENTO:
   //L'aereo non avrà un timone, quindi si possono controllare soltanto rollio (y) e beccheggio (x)
   //Per cambiare rotta, l'aereo si inclina su un lato (quindi il rollio è anche proporzionale
@@ -866,7 +870,7 @@ void PID() {
   pidVariables(); //trova X e dirCompass
   deDir = dirCompass + deltaDir; //la rotta a cui dirCompass dovrà essere uguale a fine ciclo
 
-  Serial.println("FUORI DAL PID");
+  Serial.println("NEL PID");
 /*
 Serial.print("XWp= ");
     Serial.print(XWp);
@@ -891,7 +895,7 @@ Serial.print("XWp= ");
   i_accumulator_R = 0;
   i_accumulator_I = 0;
 
-  while ( (deDir - dirCompass) < -3 || (deDir - dirCompass) > 3 || (datiGrezzi.angX - XWp) < -3 || (datiGrezzi.angX - XWp) > 3 || (datiGrezzi.angY - YWp) < -3 || (datiGrezzi.angY - YWp) > 3) { //finchè la rotta è entro limiti accettabili
+  while ( (timePID - millis() < 5000) &&( ( (c!= 4 && c!= 8)&&((deDir - dirCompass) < -3 || (deDir - dirCompass) > 3) ) || (datiGrezzi.angX - XWp) < -3 || (datiGrezzi.angX - XWp) > 3 || (datiGrezzi.angY - YWp) < -3 || (datiGrezzi.angY - YWp) > 3) ) { //finchè la rotta è fuori da limiti accettabili
     time = millis();
 
     i++;

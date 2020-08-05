@@ -4,7 +4,7 @@
 #include <RF22.h>
 
 
-uint8_t buffSize = 50;
+uint8_t buffSize = 55;
 
 RF22 rf22;
 

@@ -40,7 +40,7 @@ typedef struct {
   long lng;   //longitudine
   int alm;    //altezza livello del mare
   byte mode;   //come arrivare al waypoint
-  bool reached; //TRUE se sei arrivato al waypont
+  byte reached; //1 se sei arrivato al waypont. Vale 2 sui waypoints non utilizzati
 
 } Waypoint;
 
@@ -114,6 +114,7 @@ int deX, deY; //movimento richiesto ai servo
 //Dati sulla posizione
 int speed; //velocità in metri al secondo
 float dir, dist;  //direzione effettiva dell'aereo e distanza percorsa (calcolate con la diff. tra 2 rilevamenti gps consecutivi)
+int power = 0; //% potenza del motore
 
 //Dati sulla rotta
 float distWp; //distanza effettiva dal waypoint
@@ -161,7 +162,7 @@ void setup() {
   
   //Serial.println("1");
   for (int i = 0; i < N; i++) { //azzera tutti i reached e i mode
-      wp[i].reached = 0;
+      wp[i].reached = 2; 
       wp[i].mode = 0;
   }
   //Serial.println("2");
@@ -266,7 +267,11 @@ void setup() {
 void loop() {
   //Per come è strutturato, è molto probabile che il ciclo duri più di DELAY
   //Quindi per il calcolo della velocità si usa la differenza tra loopTime e millis()
-
+  if(wp[m].reached == 2){
+    Send("f000000000000000000000000000000000000000000000errorl");
+    //spegni i motori
+    delay(1000000);
+  }
   sensori.readGPS(&pos); //ricevi la posizione
 
   
@@ -467,7 +472,17 @@ void createTelemetry() {
 
   }
   Answer = Answer + Relevant;
-
+  
+  //Power
+  Relevant = "000";
+  if(power == 0)
+    Relevant = "000";
+  else if(power < 10)
+    Relevant = "00" + String(power);
+  else if(power < 100)
+    Relevant = "0" + String(power);
+  else
+    Relevant = String(power);
   Answer = Answer + 'l';
 
 
@@ -512,7 +527,7 @@ void Recieve(int i) {
 
   } else if (Status == 1) { //Ricevi i Waypoints
     Answer = (i);
-
+    wp[i].reached = 0;
     Relevant = Data.substring(1, 11); //11 bytes
     wp[i].lat = Relevant.toInt();
     if (Data[0] == '-')
@@ -673,6 +688,7 @@ void Recieve(int i) {
 
     }
     Answer = Answer + Relevant;
+    Answer = Answer + "000"; //aggiungi "power"
     Answer = Answer + 'l';
 
 
@@ -797,8 +813,10 @@ void newRoute() {
     pidVariables(); //trova dirCompass
     if( (dirCompass - startDir) <= deltaDir + errAng && (dirCompass - startDir) >= deltaDir - errAng ) 
       d2++;
+  }else if (modeType[wp[m].mode][d2][3] == 7){//se la condizione è regolare la potenza del motore
+      //trova il modo di regolarla
+      power = modeType[wp[m].mode][d2][4]; //è la % di potenza, va da 0 a 100
   }
-
 
 }
 

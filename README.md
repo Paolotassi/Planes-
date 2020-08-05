@@ -37,6 +37,7 @@ Flight Data from the plane is sent in one single package, in a string organized 
 -Pitch correction
 -latitude
 -longitude
+-power %
 -'l'
 With 'f' and 'l' are two characters placed there to verify data integrity.
 Every number is sent as an integer, so ControlCenter needs to scale down the latitude and longitude 

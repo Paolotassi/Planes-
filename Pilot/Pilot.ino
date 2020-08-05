@@ -53,6 +53,7 @@ typedef struct {
 int m = 0;  //indice utilizzato dal loop per scorrere i waypoints
 unsigned long time = 0; //prende il tempo quando richiesto
 unsigned long loopTime = 0; //prende il tempo del ciclo di loop
+unsigned long wpTime = 0; //prende il tempo trascorso nella stessa mode di un waypoint
 
 //RICETRASMETTITORE
 String Data;      //stringa con il comando o dato ricevuto
@@ -267,17 +268,18 @@ void setup() {
 void loop() {
   //Per come è strutturato, è molto probabile che il ciclo duri più di DELAY
   //Quindi per il calcolo della velocità si usa la differenza tra loopTime e millis()
-  if(wp[m].reached == 2){
-    Send("f000000000000000000000000000000000000000000000errorl");
-    //spegni i motori
-    delay(1000000);
-  }
+  
   sensori.readGPS(&pos); //ricevi la posizione
 
   
   Serial.println("1");
   SpeedDirection(); //trova velocità e direzione; decide se passare al waypoint successivo
   Serial.println("2");
+  if(wp[m+1].reached == 2 && speed == 0){//vedi se siamo atterrati
+    Send("f000000000000000000000000000000000000000000000errorl");
+    //spegni i motori
+    delay(1000000);
+  }
   /*readAndProcessAccelData();  //dati dall'accelerometro
   Serial.println("3");
   readCompassData(); //dati dalla bussola*/
@@ -299,7 +301,8 @@ void loop() {
   Send(Answer);
   //Serial.println("7");
   while ( millis() - loopTime < DELAY  ) //aspetta per ottenere un intervallo DELAY tra 2 rilevamenti GPS
-    PID(); //mantiene una rotta stabile, secondo i parametri stabiliti da newRoute
+    newRoute(); //trova e segui la nuova rotta. N.B.: c'è un loop per cui non si passa alla prossima funzione finchè non si è in rotta
+    //PID(); //mantiene una rotta stabile, secondo i parametri stabiliti da newRoute
   //Serial.println("10");
 }//loop
 
@@ -724,6 +727,7 @@ void SpeedDirection() {
     d2=0;
     distWp = distanza(pos.lat, pos.lng, wp[m].lat, wp[m].lng, GtoMLat, GtoMLong, m);
     distWp = sqrt( distWp*distWp + (pos.alm - wp[m].alm)*(pos.alm - wp[m].alm)  );
+    wpTime = millis();
   }//if
 
 
@@ -764,60 +768,84 @@ void newRoute() {
   float startDir = dirCompass; //trova la direzione bussola di questo istante
   
   //Impostazione dei valori per il PID
-  if( modeType[wp[m].mode][d2][3] == 0 ){
+  //vengono impostati per il waypoint, poi in base il mode possono essere modificati
 
-    XWp = asin((wp[m].alm - pos.alm) / distWp) * 180 / Pi; //calcolo della rotta diretta verso il waypoint
-    YWp = modeType[wp[m].mode][d2][1];
+  XWp = asin((wp[m].alm - pos.alm) / distWp) * 180 / Pi; //calcolo della rotta diretta verso il waypoint
+  //YWp = modeType[wp[m].mode][d2][1];
     
-    dirWp = direzione(pos.lat, pos.lng, wp[m].lat, wp[m].lng, GtoMLat, GtoMLong, distWp, m); //calcola la nuova rotta    
-    deltaDir = dirWp - dir;
-    if(deltaDir > 180)
-      deltaDir = -360 + deltaDir;
-    else  if(deltaDir < -180) 
-      deltaDir = 360 + deltaDir;
+  dirWp = direzione(pos.lat, pos.lng, wp[m].lat, wp[m].lng, GtoMLat, GtoMLong, distWp, m); //calcola la nuova rotta    
+  deltaDir = dirWp - dir;
+  if(deltaDir > 180)
+    deltaDir = -360 + deltaDir;
+  else  if(deltaDir < -180) 
+    deltaDir = 360 + deltaDir;
     
-    
-  } else {
-    
+  byte c = modeType[wp[m].mode][d2][3]; //c = tipo di condizione
+  if( c==1) {
+    XWp = 30;
+    if( pos.alm > wp[m].alm )
+      XWp = -30;
+    YWp = 0;
+    deltaDir = 0;  
+  }else if ( c > 3 && c < 7 || c == 8){
     XWp = modeType[wp[m].mode][d2][0];
     YWp = modeType[wp[m].mode][d2][1];
     deltaDir = modeType[wp[m].mode][d2][2];
-    
   }
-  
-  PID();
+
+  if (c!= 7)//non ha senso fare il PID solo per cambiare la potenza, si fa qui sotto nella verifica
+    PID();
 
   //verifica che le condizioni siano state raggiunte
   sensori.readGPS(&pos); //ricevi la posizione
   sensori.ReadSensors(&datiGrezzi); //prendi i dati dai sensori
   
   if (modeType[wp[m].mode][d2][3] == 1){//se la condizione è raggiungere un'altezza
-    if(pos.alm >=(modeType[wp[m].mode][d2][4] - errDist) && pos.alm <= (modeType[wp[m].mode][d2][4] + errDist) ) 
+    if(pos.alm >=(modeType[wp[m].mode][d2][4] - errDist) && pos.alm <= (modeType[wp[m].mode][d2][4] + errDist) ){ 
       d2++;
+      wpTime = millis();
+    }
   }else if (modeType[wp[m].mode][d2][3] == 2){//se la condizione è una distanza dal waypoint (compresa l'altezza)
     float lontananza = distanza(pos.lat, pos.lng, wp[m].lat, wp[m].lng, GtoMLat, GtoMLong, m);
     lontananza = sqrt( lontananza*lontananza + (pos.alm - wp[m].alm)*(pos.alm - wp[m].alm)  );
-    if(lontananza >=(modeType[wp[m].mode][d2][4] - errDist) && lontananza <= (modeType[wp[m].mode][d2][4] + errDist) ) 
+    if(lontananza >=(modeType[wp[m].mode][d2][4] - errDist) && lontananza <= (modeType[wp[m].mode][d2][4] + errDist) ){ 
       d2++;
+      wpTime = millis();
+    }
   }else if (modeType[wp[m].mode][d2][3] == 3){//se la condizione è una distanza dal waypoint (senza contare l'altezza)
     float lontananza = distanza(pos.lat, pos.lng, wp[m].lat, wp[m].lng, GtoMLat, GtoMLong, m);
-    if(lontananza >=(modeType[wp[m].mode][d2][4] - errDist) && lontananza <= (modeType[wp[m].mode][d2][4] + errDist) ) 
+    if(lontananza >=(modeType[wp[m].mode][d2][4] - errDist) && lontananza <= (modeType[wp[m].mode][d2][4] + errDist) ){ 
       d2++;
+      wpTime = millis();
+    }
   }else if (modeType[wp[m].mode][d2][3] == 4){//se la condizione è un angolo di rollio
-    if( (YWp - datiGrezzi.angY >= -errAng) && (YWp - datiGrezzi.angY <= errAng) ) 
+    if( (YWp - datiGrezzi.angY >= -errAng) && (YWp - datiGrezzi.angY <= errAng) ){ 
       d2++;
+      wpTime = millis();
+    }
   }else if (modeType[wp[m].mode][d2][3] == 5){//se la condizione è un angolo di beccheggio
-    if( (XWp - datiGrezzi.angX >= -errAng) && (XWp - datiGrezzi.angX <= errAng) ) 
+    if( (XWp - datiGrezzi.angX >= -errAng) && (XWp - datiGrezzi.angX <= errAng) ){ 
       d2++;
+      wpTime = millis();
+    }
   }else if (modeType[wp[m].mode][d2][3] == 6){//se la condizione è Delta angolo di imbardata
     pidVariables(); //trova dirCompass
-    if( (dirCompass - startDir) <= deltaDir + errAng && (dirCompass - startDir) >= deltaDir - errAng ) 
+    if( (dirCompass - startDir) <= deltaDir + errAng && (dirCompass - startDir) >= deltaDir - errAng ){ 
       d2++;
+      wpTime = millis();
+    }
   }else if (modeType[wp[m].mode][d2][3] == 7){//se la condizione è regolare la potenza del motore
       //trova il modo di regolarla
       power = modeType[wp[m].mode][d2][4]; //è la % di potenza, va da 0 a 100
+      d2++;
+      wpTime = millis();
+  }else if (modeType[wp[m].mode][d2][3] == 8){//se la condizione è mantenere l'assetto per un tempo
+      if( ( millis()-wpTime ) > (modeType[wp[m].mode][d2][4])*1000 ){
+        d2++;
+        wpTime = millis();
+      }
+  
   }
-
 }
 
 
@@ -830,6 +858,7 @@ void PID() {
   //Questo abbassa il muso dell'aereo, che verrà quindi bilanciato dal controllore del beccheggio
   
   int i=0;
+  byte c = modeType[wp[m].mode][d2][3]; //c = tipo di condizione
   
   sensori.ReadSensors(&datiGrezzi); //prendi i dati dai sensori
   sensori.readGPS(&pos); //ricevi la posizione
@@ -885,7 +914,7 @@ Serial.print("XWp= ");
     i_accumulator_B += integral;
     pid_X = product + derivative + i_accumulator_B;
     
-    if(modeType[wp[m].mode][d2][3]!=4){//se la condizione non è l'angolo di rollio  
+    if( c!=4 && c!=8 ){//se la condizione non ha l'angolo di rollio 
       //PID per imbardata
       error = deDir - dirCompass;
       product = P_I * error;

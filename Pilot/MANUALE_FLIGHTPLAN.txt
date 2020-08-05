@@ -39,11 +39,13 @@ Limitazioni:
 
 Condizioni ('f') e valori ammessi ('g'):
 
-IMPORTANTE! Le condizioni DEVONO poter essere raggiungibili in base alle impostazioni della fase corrente
+IMPORTANTE! 
+	-Le condizioni DEVONO poter essere raggiungibili in base alle impostazioni della fase corrente
+	-I valori di 'c', 'd', 'e' non utilizzati DEVONO valere 0
 
--f= 0 : raggiungimento del waypoint: è l'unico caso in cui 'c' ed 'e' non sono presi in considerazione 
+-f= 0 : raggiungimento del waypoint 
 	valori di 'g': indifferente (consigliabile lasciare 0000)
--f= 1 : raggiungimento di un'altezza (in metri sul livello del mare)
+-f= 1 : raggiungimento di un'altezza (in metri sul livello del mare) con un angolo di +- 30° di beccheggio
 	valori di 'g': da 0 a 9999 (consigliabile che sia maggiore di quella di partenza e, ovviamente, raggiungibile dall'aereo)
 -f= 2 : distanza dal waypoint, tenendo conto della differenza di altezza (in metri)
 	valori di 'g': da 0 a 9999 (consigliabile che sia minore della distanza tra il waypoint precedente e quello corrente)
@@ -58,6 +60,9 @@ IMPORTANTE! Le condizioni DEVONO poter essere raggiungibili in base alle imposta
 	valori di 'e': da 0 a +-360 (consigliabile che non superi una differenza di 180° con il valore corrente; deve essere uguale al valore 'e')
 -f= 7 : regola la potenza del motore (ignora tutto il resto, non fa altro)
 	valori di 'g': da 0 a 100 (rappresenta % potenza da utilizzare)
+-f= 8 : mantieni gli angoli di beccheggio e rollio indicati per un certo tempo (N.B.: gli angoli sono quelli raggiunti 
+	da questo waypoint, mentre la direzione non viene considerata)
+	valori di 'g': da 0 a 9999 (rappresentano i secondi per cui vale il waypoint)
 
 --PID--
 aaaa bbbb cccc dddd eeee ffff gggg hhhh iiii jjjj

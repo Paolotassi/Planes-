@@ -3,6 +3,7 @@
 
 #include "Arduino.h"
 #include "Sensori.h"
+#include <Adafruit_BMP280.h>
 #include <Wire.h>
 #include <TinyGPS++.h>
 #include <math.h>
@@ -26,10 +27,17 @@
 #define OSR_128         0b10000000
 #define OSR_64          0b11000000
 
+/*------ COSTANTI BAROMETRO -------*/
+
+#define BMP_SCK  (13)
+#define BMP_MISO (12)
+#define BMP_MOSI (11)
+#define BMP_CS   (10)
 
 
 Dati dati;
 TinyGPSPlus gps;
+Adafruit_BMP280 bmp; // I2C
 
 //SETUP
 
@@ -61,13 +69,13 @@ void Sensori::setUpCompass() {
 }
 
 void Sensori::GPSReady() {
-   int nSat=0, alm=0; 
+   int nSat=0; 
    
-    while (nSat<5 && alm==0){//connesso con almeno 5 satelliti
+    while (nSat<6){//connesso con almeno 6 satelliti
       while (Serial1.available() > 0){
           gps.encode(Serial1.read());
           nSat=gps.satellites.value();
-          alm=gps.altitude.meters();
+
         }
     }
     //Wire.write(nSat);
@@ -76,16 +84,30 @@ void Sensori::GPSReady() {
   pos.lng = 20;
   pos.alm = 30;
   */
-
-
 }
 
+void Sensori::setUpBarometer(){
+  Serial.println(F("BMP280 test"));
+
+  if (!bmp.begin()) {
+    Serial.println(F("Could not find a valid BMP280 sensor, check wiring!"));
+    while (1);
+  }
+
+  /* Default settings from datasheet. */
+  bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     /* Operating Mode. */
+                  Adafruit_BMP280::SAMPLING_NONE,     /* Temp. oversampling */
+                  Adafruit_BMP280::SAMPLING_X16,    /* Pressure oversampling */
+                  Adafruit_BMP280::FILTER_OFF,      /* Filtering. */
+                  Adafruit_BMP280::STANDBY_MS_1); /* Standby time. */
+}
 
 void Sensori::SetUp(){
   Serial1.begin(9600);
   Wire.begin();
   setUpMPU();
   setUpCompass();
+  setUpBarometer();
   GPSReady();
 }
 
@@ -98,7 +120,7 @@ void Sensori::readGPS(Position *pos) {
       gps.encode(Serial1.read());
       pos->lat=gps.location.lat()*10000000;
       pos->lng=gps.location.lng()*10000000;
-      pos->alm=gps.altitude.meters();
+      pos->alm=bmp.readAltitude(1013.25);
       pos->nSat=gps.satellites.value();
 
     }
@@ -158,8 +180,13 @@ void Sensori::readCompassData(Dati *dati) {
   dati->compZ |= Wire.read() << 8; //MSB y
 }
 
+void Sensori::readBarometer(Dati *dati){
+  dati->alm=bmp.readAltitude(1013.25);
+}
+
 void Sensori::ReadSensors(Dati *dati){
   readAndProcessAccelData(dati);
   readAndProcessGyroData(dati);
   readCompassData(dati);
+  readBarometer(dati);
 }

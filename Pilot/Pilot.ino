@@ -31,7 +31,6 @@
 #define errDist 2 //distanza in metri dal waypoint al di sotto della quale il wp si considera raggiunto
 #define errAng 2 //distanza in gradi dalla rotta indicata al di sotto del queale loa rotta si considera raggiunta
 
-
 /*------ STRUTTURE ---------*/
 
 typedef struct {
@@ -81,6 +80,9 @@ float gForceX, gForceY, gForceZ;
 //BUSSOLA
 //int compX, compY, compZ;  //misura del campo magnetico
 
+//BAROMETRO
+int StartingAltitude; //aòtitudine del punto di partenza
+
 /*------ COSTANTI PID -------*/
 float P_B;        //cost. proporzionale del beccheggio
 float I_B;        //cost. integrale del beccheggio
@@ -101,6 +103,8 @@ int deDir; //differenza tra l'angolo di un asse e l'angolo desiderato
 float dirCompass; //direzione secondo la bussola
 float newX, newY;
 
+//MOTORE
+Servo Engine; //bisogna inviare un valore tra 1000 e 2000
 
 //SERVO
 Servo servoX;
@@ -149,7 +153,11 @@ Sensori sensori;
 
 
 void setup() {
-
+  //setup Motore
+  Engine.attach(7);
+  Engine.writeMicroseconds(1000); // send "stop" signal to ESC.
+  delay(5000); // delay to allow the ESC to recognize the stopped signal
+  
   //setup Servo
   servoX.attach(10);
   servoY.attach(11);
@@ -239,7 +247,7 @@ void setup() {
   }
   
   sensori.readGPS(&pos); //ricevi il primo pacco di dati
-
+  StartingAltitude = pos.alm;
 
   //INVIA POSIZIONE INIZIALE
   if (Status == 4) {
@@ -269,7 +277,7 @@ void loop() {
   //Quindi per il calcolo della velocità si usa la differenza tra loopTime e millis()
   
   sensori.readGPS(&pos); //ricevi la posizione
-
+  StartingAltitude = pos.alm;
   
   Serial.println("1");
   SpeedDirection(); //trova velocità e direzione; decide se passare al waypoint successivo
@@ -291,6 +299,7 @@ void loop() {
   loopTime = millis();
   //Serial.println("6");
   sensori.readGPS(&pos); //ricevi la posizione
+  pos.alm = pos.alm - StartingAltitude;
   Serial.println("5");
   PresentToPast(&pos, &posPast);  //salva la posizione pos in posPast
   Serial.println("6");
@@ -767,6 +776,7 @@ float direzione(long lat1, long lng1, long lat2, long lng2, long GtoMLat, long G
 
 void newRoute() {
   sensori.ReadSensors(&datiGrezzi); //prendi i dati dai sensori
+  datiGrezzi.alm = datiGrezzi.alm - StartingAltitude; //trova l'altezza rispetto al punto di partenza
   pidVariables(); //trova dirCompass
   float startDir = dirCompass; //trova la direzione bussola di questo istante
   
@@ -800,58 +810,76 @@ void newRoute() {
 
   //verifica che le condizioni siano state raggiunte
   sensori.readGPS(&pos); //ricevi la posizione
+  pos.alm = pos.alm - StartingAltitude;
   sensori.ReadSensors(&datiGrezzi); //prendi i dati dai sensori
-  
-  if (modeType[wp[m].mode][d2][3] == 1){//se la condizione è raggiungere un'altezza
-    if(pos.alm >=(modeType[wp[m].mode][d2][4] - errDist) && pos.alm <= (modeType[wp[m].mode][d2][4] + errDist) ){ 
-      d2++;
-      wpTime = millis();
-    }
-  }else if (modeType[wp[m].mode][d2][3] == 2){//se la condizione è una distanza dal waypoint (compresa l'altezza)
-    float lontananza = distanza(pos.lat, pos.lng, wp[m].lat, wp[m].lng, GtoMLat, GtoMLong, m);
-    lontananza = sqrt( lontananza*lontananza + (pos.alm - wp[m].alm)*(pos.alm - wp[m].alm)  );
-    if(lontananza <=(modeType[wp[m].mode][d2][4] + errDist) ){ 
-      d2++;
-      wpTime = millis();
-    }
-  }else if (modeType[wp[m].mode][d2][3] == 3){//se la condizione è una distanza dal waypoint (senza contare l'altezza)
-    float lontananza = distanza(pos.lat, pos.lng, wp[m].lat, wp[m].lng, GtoMLat, GtoMLong, m);
-    if(lontananza <=(modeType[wp[m].mode][d2][4] + errDist) ){ 
-      d2++;
-      wpTime = millis();
-    }
-  }else if (modeType[wp[m].mode][d2][3] == 4){//se la condizione è un angolo di rollio
-    if( (YWp - datiGrezzi.angY >= -errAng) && (YWp - datiGrezzi.angY <= errAng) ){ 
-      d2++;
-      wpTime = millis();
-    }
-  }else if (modeType[wp[m].mode][d2][3] == 5){//se la condizione è un angolo di beccheggio
-    if( (XWp - datiGrezzi.angX >= -errAng) && (XWp - datiGrezzi.angX <= errAng) ){ 
-      d2++;
-      wpTime = millis();
-    }
-  }else if (modeType[wp[m].mode][d2][3] == 6){//se la condizione è Delta angolo di imbardata
-    pidVariables(); //trova dirCompass
-    if( (dirCompass - startDir) <= deltaDir + errAng && (dirCompass - startDir) >= deltaDir - errAng ){ 
-      d2++;
-      wpTime = millis();
-    }
-  }else if (modeType[wp[m].mode][d2][3] == 7){//se la condizione è regolare la potenza del motore
-      //trova il modo di regolarla
-      power = modeType[wp[m].mode][d2][4]; //è la % di potenza, va da 0 a 100
-      Serial.println("Power = ");
-      Serial.print(power);
-      d2++;
-      wpTime = millis();
-  }else if (modeType[wp[m].mode][d2][3] == 8){//se la condizione è mantenere l'assetto per un tempo
-      if( ( millis()-wpTime ) > (modeType[wp[m].mode][d2][4])*1000 ){
+  datiGrezzi.alm = datiGrezzi.alm - StartingAltitude; //trova l'altezza rispetto al punto di partenza
+
+  switch ( modeType[wp[m].mode][d2][3] ){
+    case 1: {//se la condizione è raggiungere un'altezza
+      if(pos.alm >=(modeType[wp[m].mode][d2][4] - errDist) && pos.alm <= (modeType[wp[m].mode][d2][4] + errDist) ){ 
         d2++;
         wpTime = millis();
       }
-  
+    }
+    break;
+    case 2: {//se la condizione è una distanza dal waypoint (compresa l'altezza)
+      float lontananza = distanza(pos.lat, pos.lng, wp[m].lat, wp[m].lng, GtoMLat, GtoMLong, m);
+      lontananza = sqrt( lontananza*lontananza + (pos.alm - wp[m].alm)*(pos.alm - wp[m].alm)  );
+      if(lontananza <=(modeType[wp[m].mode][d2][4] + errDist) ){ 
+        d2++;
+        wpTime = millis();
+      }
+    }
+    break;
+    case 3: {//se la condizione è una distanza dal waypoint (senza contare l'altezza)
+      float lontananza = distanza(pos.lat, pos.lng, wp[m].lat, wp[m].lng, GtoMLat, GtoMLong, m);
+      if(lontananza <=(modeType[wp[m].mode][d2][4] + errDist) ){ 
+        d2++;
+        wpTime = millis();
+      }
+    }
+    break;
+    case 4: {//se la condizione è un angolo di rollio
+      if( (YWp - datiGrezzi.angY >= -errAng) && (YWp - datiGrezzi.angY <= errAng) ){ 
+        d2++;
+        wpTime = millis();
+      }
+    }
+    break;
+    case 5: {//se la condizione è un angolo di beccheggio
+      if( (XWp - datiGrezzi.angX >= -errAng) && (XWp - datiGrezzi.angX <= errAng) ){ 
+        d2++;
+        wpTime = millis();
+      }
+    }
+    break;
+    case 6: {//se la condizione è Delta angolo di imbardata
+      pidVariables(); //trova dirCompass
+      if( (dirCompass - startDir) <= deltaDir + errAng && (dirCompass - startDir) >= deltaDir - errAng ){ 
+        d2++;
+        wpTime = millis();
+      }
+    }
+    break;
+    case 7: {//se la condizione è regolare la potenza del motore
+        power = modeType[wp[m].mode][d2][4]; //è la % di potenza, va da 0 a 100
+        Engine.writeMicroseconds( (power*10) + 1000  );
+        Serial.println("Power = ");
+        Serial.print(power);
+        d2++;
+        wpTime = millis();
+    }
+    break;
+    case 8: {//se la condizione è mantenere l'assetto per un tempo
+        if( ( millis()-wpTime ) > (modeType[wp[m].mode][d2][4])*1000 ){
+          d2++;
+          wpTime = millis();
+        }
+    }
+    break;
+    
   }
 }
-
 
 void PID() {
   int timePID = millis();
@@ -865,7 +893,9 @@ void PID() {
   byte c = modeType[wp[m].mode][d2][3]; //c = tipo di condizione
   
   sensori.ReadSensors(&datiGrezzi); //prendi i dati dai sensori
+  datiGrezzi.alm = datiGrezzi.alm - StartingAltitude; //trova l'altezza rispetto al punto di partenza
   sensori.readGPS(&pos); //ricevi la posizione
+  pos.alm = pos.alm - StartingAltitude;
 
   pidVariables(); //trova X e dirCompass
   deDir = dirCompass + deltaDir; //la rotta a cui dirCompass dovrà essere uguale a fine ciclo
@@ -900,8 +930,9 @@ Serial.print("XWp= ");
 
     i++;
     sensori.ReadSensors(&datiGrezzi);
+    datiGrezzi.alm = datiGrezzi.alm - StartingAltitude; //trova l'altezza rispetto al punto di partenza
     sensori.readGPS(&pos); //ricevi la posizione
-
+    pos.alm = pos.alm - StartingAltitude;
     //Invia telemetria
     createTelemetry();
     Send(Answer);
@@ -1028,11 +1059,3 @@ void PresentToPast(Position *pos, Position *posPast) { //salva la posizione pos 
   posPast->nSat = pos->nSat;
 
 }//PresentToPast
-/*
-void servoPos(int prev, int p){ 
-  for(int i=prev; i<p; i+=5){
-    servoX.write(i);
-    delay(5);
-  }
-  servoX.write(p);
-}*/

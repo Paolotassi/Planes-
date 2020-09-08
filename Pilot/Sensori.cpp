@@ -29,10 +29,10 @@
 
 /*------ COSTANTI BAROMETRO -------*/
 
-#define BMP_SCK  (13)
-#define BMP_MISO (12)
-#define BMP_MOSI (11)
-#define BMP_CS   (10)
+#define BMP_SCK  (3)
+#define BMP_MISO (4)
+#define BMP_MOSI (5)
+#define BMP_CS   (6)
 
 
 Dati dati;
@@ -63,8 +63,13 @@ void Sensori::setUpMPU() {
 
 void Sensori::setUpCompass() {
   Wire.beginTransmission(0x0D); //start talking
-  Wire.write(0x02); // Set the Register
-  Wire.write(0x00); // Tell the HMC5883 to Continuously Measure
+  Wire.write(0x0B); // Set the Register
+  Wire.write(0x01); // Tell the HMC5883 to Continuously Measure
+  Wire.endTransmission();
+ 
+  Wire.beginTransmission(0x0D); //start talking
+  Wire.write(0x09); // Set the Register
+  Wire.write(Mode_Continuous|ODR_200Hz|RNG_8G|OSR_512); // Tell the HMC5883 to Continuously Measure
   Wire.endTransmission();
 }
 
@@ -78,12 +83,6 @@ void Sensori::GPSReady() {
 
         }
     }
-    //Wire.write(nSat);
-  /*
-  pos.lat = 10;
-  pos.lng = 20;
-  pos.alm = 30;
-  */
 }
 
 void Sensori::setUpBarometer(){
@@ -92,7 +91,8 @@ void Sensori::setUpBarometer(){
   if (!bmp.begin()) {
     Serial.println(F("Could not find a valid BMP280 sensor, check wiring!"));
     while (1);
-  }
+  }else 
+    Serial.println(F("Barometer working fine"));
 
   /* Default settings from datasheet. */
   bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     /* Operating Mode. */
@@ -126,12 +126,11 @@ void Sensori::readGPS(Position *pos) {
     }
     
   /*
-  pos.lat = -1 * 10000000 + x * 1000000;
-  pos.lng = 2 * 10000000 + x * 1000000;
-  pos.alm = 3;
-  nSat = 5;
+  pos->lat = -1 * 10000000;
+  pos->lng = 2 * 10000000;
+  pos->alm = 3;
+  pos->nSat = 5;*/
 
-  x++;*/
 }
 
 void Sensori::readAndProcessAccelData(Dati *dati) {

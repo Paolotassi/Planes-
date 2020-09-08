@@ -46,6 +46,7 @@ Every number is sent as an integer, so ControlCenter needs to scale down the lat
 --INSTRUCTIONS--
 First, wait until the plane moves twice the control surfaces, with 1 sec. between the two.
 Then, you can start to follow the instructions displayed by ControlCenter.
+If only the stabiliser goes all the way down and stays there, there have been a problem.
 
 --TAKE OFF--
 The plane must be pointed in the right direction, as it won't change course until the specified altitude is reached.

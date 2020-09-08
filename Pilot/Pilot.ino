@@ -50,7 +50,7 @@ typedef struct {
 /*------ VARIABILI ---------*/
 
 int m = 0;  //indice utilizzato dal loop per scorrere i waypoints
-unsigned long time = 0; //prende il tempo quando richiesto
+unsigned long timeP = 0; //prende il tempo quando richiesto
 unsigned long loopTime = 0; //prende il tempo del ciclo di loop
 unsigned long wpTime = 0; //prende il tempo trascorso nella stessa mode di un waypoint
 
@@ -101,6 +101,7 @@ float error;
 float product, integral, derivative, i_accumulator_B, i_accumulator_I, i_accumulator_R;
 int deDir; //differenza tra l'angolo di un asse e l'angolo desiderato
 float dirCompass; //direzione secondo la bussola
+float startDir = 0; //direzione iniziale prima di una manovra
 float newX, newY;
 
 //MOTORE
@@ -153,11 +154,7 @@ Sensori sensori;
 
 
 void setup() {
-  //setup Motore
-  Engine.attach(7);
-  Engine.writeMicroseconds(1000); // send "stop" signal to ESC.
-  delay(5000); // delay to allow the ESC to recognize the stopped signal
-  
+
   //setup Servo
   servoX.attach(10);
   servoY.attach(11);
@@ -201,18 +198,27 @@ void setup() {
   servoPos (prevposY, 90);
   prevposX = 90;
   prevposY = 90;*/
-  servoX.write(5);
-  servoY.write(5);
-  delay(1000);
-  servoX.write(90);
-  servoY.write(90);
+  //setup Motore
+  Engine.attach(13);
+  Engine.writeMicroseconds(1000); // send "stop" signal to ESC.
+  delay(5000);
 
 
   //setup ricetrasmittente
   // if(!rf22.init())
-  if (!Radio.SetUp())
+  if (!Radio.SetUp()){
     Serial.println("failed");
-  
+    servoX.write(5);
+  }else{
+    servoX.write(5);
+    servoY.write(5);
+    delay(1000);
+    servoX.write(175);
+    servoY.write(175);
+    delay(1000);
+    servoX.write(90);
+    servoY.write(90);
+  }
 
   //Status = 0 -> richiesta connessione
   while (Status ==0) {
@@ -268,7 +274,7 @@ void setup() {
     Send( "f000000000000000000000000000000000000000000errorl" );
 
   m = 0; //azzera quest'indice, che deve essere usato anche nel loop
-
+  d2 = 0;
 
 }
 
@@ -277,14 +283,15 @@ void loop() {
   //Quindi per il calcolo della velocità si usa la differenza tra loopTime e millis()
   
   sensori.readGPS(&pos); //ricevi la posizione
-  StartingAltitude = pos.alm;
+  pos.alm = pos.alm - StartingAltitude;
   
   Serial.println("1");
   SpeedDirection(); //trova velocità e direzione; decide se passare al waypoint successivo
   Serial.println("2");
-  while(wp[m].reached == 2 && speed == 0){//vedi se siamo atterrati
+  while(wp[m+1].reached == 2 && speed == 0){//vedi se siamo atterrati
     Send("f000000000000000000000000000000000000000000000endedl");
-    //spegni i motori
+    Engine.writeMicroseconds(1000); //spegne il motore
+    delay(2000);
   }
   /*readAndProcessAccelData();  //dati dall'accelerometro
   Serial.println("3");
@@ -312,9 +319,6 @@ void loop() {
     //PID(); //mantiene una rotta stabile, secondo i parametri stabiliti da newRoute
   //Serial.println("10");
 }//loop
-
-
-
 
 
 /*------ FUNZIONI DI TRASMISSIONE -------*/
@@ -377,7 +381,7 @@ void createTelemetry() {
   }
 
   //Azione Servo rollio
-  x = posY * 4 - 90; //così va da + a - 180, si visualizza meglio su labview
+  x = (posY-90) * 4; //così va da + a - 180, si visualizza meglio su labview
   if (x >= 0) {
     if (x < 10)
       Relevant = "000" + String(x);
@@ -416,7 +420,7 @@ void createTelemetry() {
   }
 
   //Azione Servo beccheggio
-  x = posX * 4 - 90; //così va da + a - 180, si visualizza meglio su labview
+  x = (posX-90) * 2; //così va da + a - 180, si visualizza meglio su labview
   if (x >= 0) {
     if (x < 10)
       Relevant = "000" + String(x);
@@ -537,26 +541,30 @@ void Recieve(int i) {
 
 
   } else if (Status == 1) { //Ricevi i Waypoints
-    Answer = (i);
-    wp[i].reached = 0;
-    Relevant = Data.substring(1, 11); //11 bytes
-    wp[i].lat = Relevant.toInt();
-    if (Data[0] == '-')
-      wp[i].lat = - wp[i].lat;
-
-    Relevant = Data.substring(12, 22); //11 bytes
-    wp[i].lng = Relevant.toInt();
-    if (Data[11] == '-')
-      wp[i].lng = - wp[i].lng;
-
-    Relevant = Data.substring(23, 26); //4 bytes
-    wp[i].alm = Relevant.toInt();
-
-    Relevant = Data.substring(27, 28); //2 bytes
-    wp[i].mode = Relevant.toInt();
-
-    if (Data == "modeType") //aggiorna Status dopo aver caricato tutti i waypoints
+    if (Data == "modeType"){ //aggiorna Status dopo aver caricato tutti i waypoints
       Status = 2;
+    }else{
+      //Answer = (i);
+      wp[i].reached = 0;
+      Relevant = Data.substring(1, 11); //11 bytes
+      wp[i].lat = Relevant.toInt();
+      if (Data[0] == '-')
+        wp[i].lat = - wp[i].lat;
+  
+      Relevant = Data.substring(12, 22); //11 bytes
+      wp[i].lng = Relevant.toInt();
+      if (Data[11] == '-')
+        wp[i].lng = - wp[i].lng;
+  
+      Relevant = Data.substring(23, 26); //4 bytes
+      wp[i].alm = Relevant.toInt();
+  
+      Relevant = Data.substring(27, 28); //2 bytes
+      wp[i].mode = Relevant.toInt();
+    }
+    //Serial.print("mode: ");
+    //Serial.println(wp[i].mode);
+    Answer = String(i);
 
   } else if (Status == 2) {//ricevi i modeType
     if (Data == "pid")
@@ -567,16 +575,33 @@ void Recieve(int i) {
       x = Relevant.toInt();
       Relevant = Data.substring(3, 4); //2 bytes
       y = Relevant.toInt();
-      Relevant = Data.substring(5, 8); //4 bytes
+      Relevant = Data.substring(6, 8); //4 bytes
       modeType[x][y][0] = Relevant.toInt();
-      Relevant = Data.substring(9, 112); //4 bytes
+      if(Data.charAt(4)=='-')
+        modeType[x][y][0]= - modeType[x][y][0];
+      Relevant = Data.substring(10, 12); //4 bytes
       modeType[x][y][1] = Relevant.toInt();
-      Relevant = Data.substring(13, 16); //4 bytes
+      if(Data.charAt(8)=='-')
+        modeType[x][y][1]= - modeType[x][y][1];
+      Relevant = Data.substring(14, 16); //4 bytes
       modeType[x][y][2] = Relevant.toInt();
+      if(Data.charAt(12)=='-')
+        modeType[x][y][2]= - modeType[x][y][2];
       Relevant = Data.substring(17, 18); //2 bytes
       modeType[x][y][3] = Relevant.toInt();
-      Relevant = Data.substring(19, 22); //4 bytes
+      Relevant = Data.substring(20, 22); //4 bytes
       modeType[x][y][4] = Relevant.toInt();
+      if(Data.charAt(18)=='-')
+        modeType[x][y][4]= - modeType[x][y][4];
+
+      /*Serial.println(Data.charAt(8));
+      Serial.println(x);
+      Serial.println(y);
+      Serial.println(modeType[x][y][0]);
+      Serial.println(modeType[x][y][1]);
+      Serial.println(modeType[x][y][2]);
+      Serial.println(modeType[x][y][3]);
+      Serial.println(modeType[x][y][4]);*/
       
     }
 
@@ -778,7 +803,8 @@ void newRoute() {
   sensori.ReadSensors(&datiGrezzi); //prendi i dati dai sensori
   datiGrezzi.alm = datiGrezzi.alm - StartingAltitude; //trova l'altezza rispetto al punto di partenza
   pidVariables(); //trova dirCompass
-  float startDir = dirCompass; //trova la direzione bussola di questo istante
+  if (startDir == 0)
+    startDir = dirCompass; //trova la direzione bussola di questo istante
   
   //Impostazione dei valori per il PID
   //vengono impostati per il waypoint, poi in base il mode possono essere modificati
@@ -793,6 +819,16 @@ void newRoute() {
     deltaDir = 360 + deltaDir;
     
   byte c = modeType[wp[m].mode][d2][3]; //c = tipo di condizione
+  Serial.print("Modo: ");
+    Serial.println(wp[m].mode);
+    Serial.print("XWp= ");
+    Serial.println(modeType[wp[m].mode][d2][0]);
+    Serial.print("YWp= ");
+    Serial.println(modeType[wp[m].mode][d2][1]);
+    Serial.print("deltaDir= ");
+    Serial.println(modeType[wp[m].mode][d2][2]);
+
+    
   if( c==1) {
     XWp = 30;
     if( pos.alm > wp[m].alm )
@@ -803,8 +839,16 @@ void newRoute() {
     XWp = modeType[wp[m].mode][d2][0];
     YWp = modeType[wp[m].mode][d2][1];
     deltaDir = modeType[wp[m].mode][d2][2];
+    Serial.println("Nel posto giusto");
   }
 
+  Serial.print("XWp= ");
+    Serial.println(XWp);
+    Serial.print("YWp= ");
+    Serial.println(YWp);
+    Serial.print("deltaDir= ");
+    Serial.println(deltaDir);
+    
   if (c!= 7)//non ha senso fare il PID solo per cambiare la potenza, si fa qui sotto nella verifica
     PID();
 
@@ -858,6 +902,7 @@ void newRoute() {
       if( (dirCompass - startDir) <= deltaDir + errAng && (dirCompass - startDir) >= deltaDir - errAng ){ 
         d2++;
         wpTime = millis();
+        startDir = 0; //permette di modificare l'imbardata all'istruzione successiva
       }
     }
     break;
@@ -882,7 +927,7 @@ void newRoute() {
 }
 
 void PID() {
-  int timePID = millis();
+  unsigned long timePID = millis();
   //FUNZIONAMENTO:
   //L'aereo non avrà un timone, quindi si possono controllare soltanto rollio (y) e beccheggio (x)
   //Per cambiare rotta, l'aereo si inclina su un lato (quindi il rollio è anche proporzionale
@@ -897,37 +942,19 @@ void PID() {
   sensori.readGPS(&pos); //ricevi la posizione
   pos.alm = pos.alm - StartingAltitude;
 
-  pidVariables(); //trova X e dirCompass
-  deDir = dirCompass + deltaDir; //la rotta a cui dirCompass dovrà essere uguale a fine ciclo
+  pidVariables(); //dirCompass
+  deDir = startDir + deltaDir; //la rotta a cui dirCompass dovrà essere uguale a fine ciclo
 
   Serial.println("NEL PID");
-/*
-Serial.print("XWp= ");
-    Serial.print(XWp);
-    Serial.print("  distWp= ");
-    Serial.print(distWp);
-    Serial.print("  dirWp= ");
-    Serial.print(dirWp);
-    Serial.print("  dirCompass= ");
-    Serial.print(dirCompass);
-    
-    Serial.print("  angX= ");
-    Serial.print(datiGrezzi.angX);
-    Serial.print("  angY= ");
-    Serial.print(datiGrezzi.angY);
-    
-    Serial.print("  PosX= ");
-    Serial.print(posX-90);
-    Serial.print("  PosY= ");
-    Serial.println(posY-90);*/
+
     
   i_accumulator_B = 0;
   i_accumulator_R = 0;
   i_accumulator_I = 0;
 
-  while ( (timePID - millis() < 5000) &&( ( (c!= 4 && c!= 8)&&((deDir - dirCompass) < -3 || (deDir - dirCompass) > 3) ) || (datiGrezzi.angX - XWp) < -3 || (datiGrezzi.angX - XWp) > 3 || (datiGrezzi.angY - YWp) < -3 || (datiGrezzi.angY - YWp) > 3) ) { //finchè la rotta è fuori da limiti accettabili
-    time = millis();
-
+ while ( checkCondition(c, timePID) ) { //finchè la rotta è fuori da limiti accettabili
+    timeP = millis();
+    Serial.println("NEL PIDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD");
     i++;
     sensori.ReadSensors(&datiGrezzi);
     datiGrezzi.alm = datiGrezzi.alm - StartingAltitude; //trova l'altezza rispetto al punto di partenza
@@ -939,6 +966,13 @@ Serial.print("XWp= ");
 
     pidVariables(); //trova dirCompass
 
+    /*Serial.print("XWp= ");
+    Serial.println(XWp);
+    Serial.print("YWp= ");
+    Serial.println(XWp);
+    Serial.print("deDir= ");
+    Serial.println(deDir);*/
+    
     //VERIFICA BENE IL DERIVATIVE, E COME METTERLO IN IMBARDATA
 
     //PID per beccheggio
@@ -948,7 +982,8 @@ Serial.print("XWp= ");
     integral = I_B * error / SAMPLING_FREQ;
     i_accumulator_B += integral;
     pid_X = product + derivative + i_accumulator_B;
-    
+
+    pid_Z = 0;
     if( c!=4 && c!=8 ){//se la condizione non ha l'angolo di rollio 
       //PID per imbardata
       error = deDir - dirCompass;
@@ -956,19 +991,24 @@ Serial.print("XWp= ");
       integral = I_I * error / SAMPLING_FREQ;
       i_accumulator_I += integral;
       pid_Z = product + i_accumulator_I;
- 
-      //pid_Z è limitato dal massimo rollio che ha senso dare all'aereo. Ora è +-60 gradi, ma si può ovviamente cambiare
-      if (pid_Z > 60)
-        pid_Z = 60;
-      else if (pid_Z < -60)
-        pid_Z = -60;   
-   
     }else{//se la condizione è il rollio, si ignora la deviazione dalla rotta
       pid_Z = 0;
     }
-    
+    Serial.print("dirCompass= ");
+    Serial.println(dirCompass);
+    Serial.print("pid_Z= ");
+    Serial.println(pid_Z);
     //PID per rollio
-    error = (pid_Z + YWp) - datiGrezzi.angY; //il rollio aumenta con l'aumentare dell'errore dell'imbardata
+    
+    //limita il massimo rollio se bisogna considerare l'imbardata
+    error = (pid_Z + YWp); 
+    if( c!=4 && c!=8 ){
+      if (pid_Z + YWp < -60)
+        error = -60;
+      else if (pid_Z + YWp > 60)
+        error = 60;
+    } 
+    error = error - datiGrezzi.angY; //il rollio aumenta con l'aumentare dell'errore dell'imbardata
     product = P_R * error;
     derivative = D_R * datiGrezzi.gyroY;
     integral = I_R * error / SAMPLING_FREQ;
@@ -988,13 +1028,18 @@ Serial.print("XWp= ");
       deY = -45;
     else if ( deY > 45 )
       deY = 45;
-      
+
+    
     //prevposX = posX;
     //prevposY = posY;
     posX = 90 + deX;
     posY = 90 + deY;
 
-
+    /*Serial.print("ServoX= ");
+    Serial.println(posX);
+    Serial.print("ServoY= ");
+    Serial.println(posY);*/
+    
     /*Serial.print("XWp= ");
     Serial.print(XWp);
     Serial.print("  dirWp= ");
@@ -1032,14 +1077,15 @@ Serial.print("XWp= ");
       i_accumulator_R = 0;
       i_accumulator_I = 0;
     }
+
       
-    while ( (millis() - time) < (1000 / SAMPLING_FREQ) ) { //aspetta per far sì che il ciclo duri il giusto
+    while ( (millis() - timeP) < (1000 / SAMPLING_FREQ) ) { //aspetta per far sì che il ciclo duri il giusto
       //non so se è un tempo sufficiente, ma in caso affermativo
-     /* //Invia telemetria
+      //Invia telemetria
       createTelemetry();
-      Send(Answer);*/
+      Send(Answer);
     }
-  }
+ }
 
 }
 
@@ -1051,6 +1097,42 @@ void pidVariables() {
 
 }
 
+bool checkCondition(byte c, unsigned long timePID){//controlla quanto siamo distanti dai parametri
+    bool a = false,b = false,x = false,y = false, z = false;
+    if ((millis() - timePID )< 1000)
+      a = true;
+
+    if(  ((datiGrezzi.angX - XWp) < -3 || (datiGrezzi.angX - XWp) > 3)  )
+      b = true;
+      
+    if(  ((datiGrezzi.angY - YWp) < -3 || (datiGrezzi.angY - YWp) > 3)  )
+      x = true;
+
+    if (c == 4 || c == 8)
+      y = false;
+    else if ((deDir - dirCompass) < -3 || (deDir - dirCompass) > 3)
+      y = true;
+      
+    z = ( b || x ) || y;
+
+    /*Serial.print("a: ");
+    Serial.println(a);
+    Serial.print("b: ");
+    Serial.println(b);
+    Serial.print("x: ");
+    Serial.println(x);
+    Serial.print("y: ");
+    Serial.println(y);
+    Serial.print("z: ");
+    Serial.println(z);*/
+    
+    if( a && z )
+      return true;
+    else 
+      return false;
+    
+}
+
 void PresentToPast(Position *pos, Position *posPast) { //salva la posizione pos in posPast
 
   posPast->lat  = pos->lat ;
@@ -1059,3 +1141,8 @@ void PresentToPast(Position *pos, Position *posPast) { //salva la posizione pos 
   posPast->nSat = pos->nSat;
 
 }//PresentToPast
+
+
+
+
+//riga aggiunta perchè mi va

@@ -1,4 +1,6 @@
 //serial buffer size: 64 bytes
+//#include <Servo.h> //serve per debugging
+
 
 #include <SPI.h>
 #include <RF22.h>
@@ -15,6 +17,9 @@ int maxTime = 1000; //se una risposta non viene ricevuta entro maxTime ms, si co
 String Data = "";      //stringa con comandi o dati
 String Answer = "";    //stringa con telemetria (o altre risposte)
 
+
+//Servo servo; //debugging
+
 void setup()
 {
   Serial.begin(115200); //setup porta seriale
@@ -22,27 +27,36 @@ void setup()
   rf22.init(); //setup ricetrasmittente
 
   rf22.setTxPower(TX_POWER);
+
+  //rf22.send("trying", 60);
+  //servo.attach(3); //debug
+  //servo.write(0);
 }
 
 void loop()
 {
   //while (!Serial.available()) {}
-  while (Serial.available())  //ricevi una richiesta
+  if (Serial.available())  //ricevi una richiesta
   {
-    Data = Serial.readString();
+    Data = Serial.readString(); 
   }
   //Serial.flush();
-
-  if (Data != "") //inoltra la richiesta
+  
+    
+  if (Data != "" && Data != "reset") //inoltra la richiesta
   {
     //int len = Data.length()+10;
     int len = 52;
     uint8_t data[len];
 
+    //if (Data=="ready")
+     // servo.write(45);
+      
     Data.getBytes(data, len);  //trasforma la stringa Data in array di bytes
 
     rf22.send(data, len);
     rf22.waitPacketSent(500);
+    
     Data = "";
 
     if (rf22.waitAvailableTimeout(maxTime)) //ricevi una risposta
@@ -67,13 +81,15 @@ void loop()
     if (Data == "start") //verifica se il volo può iniziare
     {
       telemetria(); //riceve sempre i dati da Pilot, e li inoltra quando richiesto da ControlCenter
+      Data="";
     }
   }
 }
 
 void telemetria()
 {
-  while (1) //continua in eterno
+  byte x=1;
+  while (x==1) //continua fino al reset
   {
     String Info;
     //stai sempre in ascolto rispetto a Pilot, e aggiorna in contunuo
@@ -91,7 +107,7 @@ void telemetria()
     }
 
     //inoltra la risposta
-    while (Serial.available())
+    if (Serial.available())
     {
       Info = Serial.readString();
     }
@@ -99,7 +115,8 @@ void telemetria()
     {
       Serial.print(Answer);
       Answer = "";
-    }
+    }else if(Info == "reset")
+      x=0;
 
 
   }

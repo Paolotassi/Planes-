@@ -20,7 +20,6 @@
 #include <math.h>
 #include <Servo.h>
 #include <SPI.h>
-//#include <RF22.h>
 
 #define N 20    //numero massimo di waypoints
 #define DUNO 10    //dimensione 1 di modeType
@@ -156,6 +155,8 @@ Sensori sensori;
 void setup() {
 
   //setup Servo
+  pinMode(10, OUTPUT);
+  pinMode(11, OUTPUT);
   servoX.attach(10);
   servoY.attach(11);
   //servoPos (prevposX, posX);
@@ -199,7 +200,8 @@ void setup() {
   prevposX = 90;
   prevposY = 90;*/
   //setup Motore
-  Engine.attach(13);
+  pinMode(12, OUTPUT);
+  Engine.attach(12);
   Engine.writeMicroseconds(1000); // send "stop" signal to ESC.
   delay(5000);
 
@@ -219,7 +221,8 @@ void setup() {
     servoX.write(90);
     servoY.write(90);
   }
-
+  Serial.println("Ready");
+  
   //Status = 0 -> richiesta connessione
   while (Status ==0) {
     Recieve(m);
@@ -381,7 +384,7 @@ void createTelemetry() {
   }
 
   //Azione Servo rollio
-  x = (posY-90) * 4; //così va da + a - 180, si visualizza meglio su labview
+  x = (posY-90) * 2; //così va da + a - 180, si visualizza meglio su labview
   if (x >= 0) {
     if (x < 10)
       Relevant = "000" + String(x);
@@ -420,7 +423,7 @@ void createTelemetry() {
   }
 
   //Azione Servo beccheggio
-  x = (posX-90) * 2; //così va da + a - 180, si visualizza meglio su labview
+  x = (posX-90) ; //così va da + a - 90, si visualizza meglio su labview
   if (x >= 0) {
     if (x < 10)
       Relevant = "000" + String(x);
@@ -742,7 +745,6 @@ void Recieve(int i) {
 
 /*------ FUNZIONI DI LOOP -------*/
 
-
 void SpeedDirection() {
 
   dist = distanza(posPast.lat, posPast.lng, pos.lat, pos.lng, GtoMLat, GtoMLong, m);//distanza dal rilevamento precedente
@@ -829,17 +831,16 @@ void newRoute() {
     Serial.println(modeType[wp[m].mode][d2][2]);
 
     
-  if( c==1) {
-    XWp = 30;
-    if( pos.alm > wp[m].alm )
-      XWp = -30;
-    YWp = 0;
-    deltaDir = 0;  
-  }else if ( c > 3 && c < 7 || c == 8){
+ 
+  if ( c==1 || (c > 3 && c < 7) || c == 8){
     XWp = modeType[wp[m].mode][d2][0];
     YWp = modeType[wp[m].mode][d2][1];
     deltaDir = modeType[wp[m].mode][d2][2];
     Serial.println("Nel posto giusto");
+  }else if (c==9){//l'istruzione rappresenta gradi/sec, quindi vanno incrementati ogni ciclo
+    XWp = modeType[wp[m].mode][d2][0] + datiGrezzi.angX;
+    YWp = modeType[wp[m].mode][d2][1] + datiGrezzi.angY;
+    deltaDir = modeType[wp[m].mode][d2][2] + dirCompass;
   }
 
   Serial.print("XWp= ");
@@ -916,6 +917,13 @@ void newRoute() {
     }
     break;
     case 8: {//se la condizione è mantenere l'assetto per un tempo
+        if( ( millis()-wpTime ) > (modeType[wp[m].mode][d2][4])*1000 ){
+          d2++;
+          wpTime = millis();
+        }
+    }
+    break;
+    case 9: {//se la condizione è ripetere la manovra per un tempo
         if( ( millis()-wpTime ) > (modeType[wp[m].mode][d2][4])*1000 ){
           d2++;
           wpTime = millis();
@@ -1018,16 +1026,16 @@ void PID() {
 
     //posizione SERVO
     deX = pid_X; //a 90° il servo è in posizione neutrale
-    if ( deX < -45 )
-      deX = -45;
-    else if ( deX > 45 )
-      deX = 45;
+    if ( deX < -85 )
+      deX = -85;
+    else if ( deX > 85 )
+      deX = 85;
 
     deY =  pid_Y;
-    if ( deY < -45 )
-      deY = -45;
-    else if ( deY > 45 )
-      deY = 45;
+    if ( deY < -85 )
+      deY = -85;
+    else if ( deY > 85 )
+      deY = 85;
 
     
     //prevposX = posX;

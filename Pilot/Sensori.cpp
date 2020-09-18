@@ -29,10 +29,10 @@
 
 /*------ COSTANTI BAROMETRO -------*/
 
-#define BMP_SCK  (3)
+/*#define BMP_SCK  (3)
 #define BMP_MISO (4)
 #define BMP_MOSI (5)
-#define BMP_CS   (6)
+#define BMP_CS   (6)*/
 
 
 Dati dati;
@@ -129,8 +129,8 @@ void Sensori::readGPS(Position *pos) {
   pos->lat = -1 * 10000000;
   pos->lng = 2 * 10000000;
   pos->alm = 3;
-  pos->nSat = 5;*/
-
+  pos->nSat = 5;
+  */
 }
 
 void Sensori::readAndProcessAccelData(Dati *dati) {

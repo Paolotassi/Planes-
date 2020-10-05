@@ -19,7 +19,8 @@
 #include <string.h>
 #include <math.h>
 #include <Servo.h>
-#include <SPI.h>
+//#include <SPI.h>
+#include <SD.h>
 
 #define N 20    //numero massimo di waypoints
 #define DUNO 10    //dimensione 1 di modeType
@@ -29,6 +30,12 @@
 #define DELAY 500  //intervallo MINIMO in millisecondi tra 2 cicli
 #define errDist 2 //distanza in metri dal waypoint al di sotto della quale il wp si considera raggiunto
 #define errAng 2 //distanza in gradi dalla rotta indicata al di sotto del queale loa rotta si considera raggiunta
+
+//pin dei motori
+#define PIN_B 12  //pin servo beccheggio
+#define PIN_R_SX 11  //pin servo rollio sx
+#define PIN_R_DX 10  //pin servo rollio dx
+#define PIN_M 9  //pin motore principale
 
 /*------ STRUTTURE ---------*/
 
@@ -52,6 +59,11 @@ int m = 0;  //indice utilizzato dal loop per scorrere i waypoints
 unsigned long timeP = 0; //prende il tempo quando richiesto
 unsigned long loopTime = 0; //prende il tempo del ciclo di loop
 unsigned long wpTime = 0; //prende il tempo trascorso nella stessa mode di un waypoint
+
+//SD CARD READER
+int SD_Pin = 35;
+int SD_Power = 34;
+File SD_File;
 
 //RICETRASMETTITORE
 String Data;      //stringa con il comando o dato ricevuto
@@ -108,7 +120,8 @@ Servo Engine; //bisogna inviare un valore tra 1000 e 2000
 
 //SERVO
 Servo servoX;
-Servo servoY;
+Servo servoY_DX;
+Servo servoY_SX;
 int posX = 90; //posizione servo. N.B.: prima di inviarle, va sottratto 90
 int posY = 90;
 int prevposX = 0; //posizione vecchia servo.
@@ -155,18 +168,25 @@ Sensori sensori;
 void setup() {
 
   //setup Servo
-  pinMode(10, OUTPUT);
-  pinMode(11, OUTPUT);
-  servoX.attach(10);
-  servoY.attach(11);
+  pinMode(PIN_B, OUTPUT);
+  pinMode(PIN_R_SX, OUTPUT);
+  pinMode(PIN_R_DX, OUTPUT);
+  pinMode(SD_Pin, OUTPUT);
+  digitalWrite(SD_Pin, HIGH);
+  pinMode(SD_Power, OUTPUT);//alimenta il lettore sd. Questo aggira un problema di Hardware
+  digitalWrite(SD_Power, LOW);
+  servoX.attach(PIN_B);
+  servoY_DX.attach(PIN_R_SX);
+  servoY_SX.attach(PIN_R_DX);
   //servoPos (prevposX, posX);
   //servoPos (prevposY, posY);
   servoX.write(posX);
-  servoY.write(posY);
+  servoY_SX.write(posY);
+  servoY_DX.write(posY);
   prevposX = posX;
   prevposY = posY;
   Serial.begin(115200);//serve solo finchè facciamo opere di debug
-  
+
   //Serial.println("1");
   for (int i = 0; i < N; i++) { //azzera tutti i reached e i mode
       wp[i].reached = 2; 
@@ -200,8 +220,8 @@ void setup() {
   prevposX = 90;
   prevposY = 90;*/
   //setup Motore
-  pinMode(12, OUTPUT);
-  Engine.attach(12);
+  pinMode(PIN_M, OUTPUT);
+  Engine.attach(PIN_M);
   Engine.writeMicroseconds(1000); // send "stop" signal to ESC.
   delay(5000);
 
@@ -210,17 +230,42 @@ void setup() {
   // if(!rf22.init())
   if (!Radio.SetUp()){
     Serial.println("failed");
-    servoX.write(5);
+    servoX.write(30);
+    while(1);
   }else{
-    servoX.write(5);
-    servoY.write(5);
+    servoX.write(30);
+    servoY_SX.write(30);
+    servoY_DX.write(30);
     delay(1000);
-    servoX.write(175);
-    servoY.write(175);
+    servoX.write(120);
+    servoY_SX.write(120);
+    servoY_DX.write(120);
     delay(1000);
     servoX.write(90);
-    servoY.write(90);
+    servoY_SX.write(90);
+    servoY_DX.write(90);
+    Serial.println("Transmitter working");
   }
+  
+  
+  //Setup lettore scheda SD
+  digitalWrite(SD_Power, HIGH);
+  digitalWrite(SD_Pin, LOW);
+  //delay(5000);
+  if (!SD.begin(SD_Pin)) {
+    Serial.println("initialization failed...");
+    servoX.write(120);
+    while(1);
+  }
+  if (SD.exists("FLIGHT.txt")) //cancella il file se è già dentro
+    SD.remove("FLIGHT.txt");
+  SD_File = SD.open("FLIGHT.txt", FILE_WRITE); //crea un file vergine
+  SD_File.close();
+  digitalWrite(SD_Pin, HIGH);
+  digitalWrite(SD_Power, LOW);
+  Serial.println("initialization done.");
+  servoX.write(30);
+  servoX.write(120);
   Serial.println("Ready");
   
   //Status = 0 -> richiesta connessione
@@ -310,6 +355,7 @@ void loop() {
   //Serial.println("6");
   sensori.readGPS(&pos); //ricevi la posizione
   pos.alm = pos.alm - StartingAltitude;
+  SaveSD();
   Serial.println("5");
   PresentToPast(&pos, &posPast);  //salva la posizione pos in posPast
   Serial.println("6");
@@ -504,6 +550,7 @@ void createTelemetry() {
   Answer = Answer + 'l';
 
 
+  
 }
 
 void Send( String Answer ) {
@@ -743,6 +790,41 @@ void Recieve(int i) {
 
 }
 
+void SaveSD(){//salva la telemetria nel file
+  digitalWrite(SD_Power, HIGH);
+  digitalWrite(SD_Pin, LOW);
+  SD.begin(SD_Pin);
+  SD_File = SD.open("FLIGHT.txt", FILE_WRITE);
+  if(SD_File){
+    Serial.println("Scrivo nella SD");
+    SD_File.print(String(millis()));
+    SD_File.print('_');
+    SD_File.print(String(m));
+    SD_File.print('_');
+    SD_File.print(String(pos.lat));
+    SD_File.print('_');
+    SD_File.print(String(pos.lng));
+    SD_File.print('_');
+    SD_File.print(String(pos.alm));
+    SD_File.print('_');
+    SD_File.println(String(power));
+    SD_File.print('_');
+    SD_File.print(String(speed));
+    SD_File.print('_');
+    SD_File.print(String(datiGrezzi.angX));
+    SD_File.print('_');
+    SD_File.print(String((posX-90)));
+    SD_File.print('_');
+    SD_File.print(String(datiGrezzi.angY));
+    SD_File.print('_');
+    SD_File.print(String((posY-90) * 2));
+      
+    SD_File.close();
+  }
+  digitalWrite(SD_Pin, HIGH);
+  digitalWrite(SD_Power, LOW);
+  Serial.println("Fine scrittura SD");
+}
 /*------ FUNZIONI DI LOOP -------*/
 
 void SpeedDirection() {
@@ -804,6 +886,7 @@ float direzione(long lat1, long lng1, long lat2, long lng2, long GtoMLat, long G
 void newRoute() {
   sensori.ReadSensors(&datiGrezzi); //prendi i dati dai sensori
   datiGrezzi.alm = datiGrezzi.alm - StartingAltitude; //trova l'altezza rispetto al punto di partenza
+  SaveSD();
   pidVariables(); //trova dirCompass
   if (startDir == 0)
     startDir = dirCompass; //trova la direzione bussola di questo istante
@@ -949,7 +1032,8 @@ void PID() {
   datiGrezzi.alm = datiGrezzi.alm - StartingAltitude; //trova l'altezza rispetto al punto di partenza
   sensori.readGPS(&pos); //ricevi la posizione
   pos.alm = pos.alm - StartingAltitude;
-
+  SaveSD();
+  
   pidVariables(); //dirCompass
   deDir = startDir + deltaDir; //la rotta a cui dirCompass dovrà essere uguale a fine ciclo
 
@@ -968,6 +1052,7 @@ void PID() {
     datiGrezzi.alm = datiGrezzi.alm - StartingAltitude; //trova l'altezza rispetto al punto di partenza
     sensori.readGPS(&pos); //ricevi la posizione
     pos.alm = pos.alm - StartingAltitude;
+    SaveSD();
     //Invia telemetria
     createTelemetry();
     Send(Answer);
@@ -1041,7 +1126,7 @@ void PID() {
     //prevposX = posX;
     //prevposY = posY;
     posX = 90 + deX;
-    posY = 90 + deY;
+    posY = 90 - deY;
 
     /*Serial.print("ServoX= ");
     Serial.println(posX);
@@ -1076,7 +1161,8 @@ void PID() {
     //servoPos (prevposX, posX);
     //servoPos (prevposY, posY);
     servoX.write(posX);
-    servoY.write(posY);
+    servoY_SX.write(posY);
+    servoY_DX.write(posY);
 
     //azzera gli integrali dei controllori dopo "i" cicli
     if(i>=100){

@@ -1,4 +1,4 @@
-//l'aereo si sviluppa in lunghezza lungo l'asse y
+ //l'aereo si sviluppa in lunghezza lungo l'asse y
 //l'asse x va da sinistra a destra
 //l'asse z va dal basso verso l'alto
 
@@ -61,8 +61,8 @@ unsigned long loopTime = 0; //prende il tempo del ciclo di loop
 unsigned long wpTime = 0; //prende il tempo trascorso nella stessa mode di un waypoint
 
 //SD CARD READER
-int SD_Pin = 35;
-int SD_Power = 34;
+int SD_Pin = 49;
+int SD_Power = 48;
 File SD_File;
 
 //RICETRASMETTITORE
@@ -797,6 +797,31 @@ void SaveSD(){//salva la telemetria nel file
   SD_File = SD.open("FLIGHT.txt", FILE_WRITE);
   if(SD_File){
     Serial.println("Scrivo nella SD");
+    String SDdata = String(millis());
+    SDdata = SDdata + '_';
+    SDdata = SDdata + String(m);
+    SDdata = SDdata + '_';
+    SDdata = SDdata + String(pos.lat);
+    SDdata = SDdata + '_';
+    SDdata = SDdata + String(pos.lng);
+    SDdata = SDdata + '_';
+    SDdata = SDdata + String(pos.alm);
+    SDdata = SDdata + '_';
+    SDdata = SDdata + String(power);
+    SDdata = SDdata + '_';
+    SDdata = SDdata + String(speed);
+    SDdata = SDdata + '_';
+    SDdata = SDdata + String(datiGrezzi.angX);
+    SDdata = SDdata + '_';
+    SDdata = SDdata + String((posX-90));
+    SDdata = SDdata + '_';
+    SDdata = SDdata + String(datiGrezzi.angY);
+    SDdata = SDdata + '_';
+    SDdata = SDdata + String((posY-90) * 2);
+    
+    SD_File.println(SDdata);
+    
+    /*
     SD_File.print(String(millis()));
     SD_File.print('_');
     SD_File.print(String(m));
@@ -818,7 +843,7 @@ void SaveSD(){//salva la telemetria nel file
     SD_File.print(String(datiGrezzi.angY));
     SD_File.print('_');
     SD_File.print(String((posY-90) * 2));
-      
+      */
     SD_File.close();
   }
   digitalWrite(SD_Pin, HIGH);
@@ -1111,16 +1136,16 @@ void PID() {
 
     //posizione SERVO
     deX = pid_X; //a 90° il servo è in posizione neutrale
-    if ( deX < -85 )
-      deX = -85;
-    else if ( deX > 85 )
-      deX = 85;
+    if ( deX < -60 )
+      deX = -60;
+    else if ( deX > 60 )
+      deX = 60;
 
     deY =  pid_Y;
-    if ( deY < -85 )
-      deY = -85;
-    else if ( deY > 85 )
-      deY = 85;
+    if ( deY < -60 )
+      deY = -60;
+    else if ( deY > 60 )
+      deY = 60;
 
     
     //prevposX = posX;

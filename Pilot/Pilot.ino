@@ -2,7 +2,7 @@
 //l'asse x va da sinistra a destra
 //l'asse z va dal basso verso l'alto
 
-/*---DEBUG---*/
+
 //Baud rate monitor seriale = 115200
 
 //CONNESSIONI
@@ -36,6 +36,10 @@
 #define PIN_R_SX 11  //pin servo rollio sx
 #define PIN_R_DX 10  //pin servo rollio dx
 #define PIN_M 9  //pin motore principale
+
+/*------ DEBUGING TOOLS -------*/
+#define SerialPrintAll 1   //Stampa sul monitor seriale quasi tutto quello che accade
+//#define SerialPrintMin 1   //Stampa sul monitor seriale il minimo indispensabile per seguire il programma
 
 /*------ STRUTTURE ---------*/
 
@@ -187,12 +191,11 @@ void setup() {
   prevposY = posY;
   Serial.begin(115200);//serve solo finchè facciamo opere di debug
 
-  //Serial.println("1");
   for (int i = 0; i < N; i++) { //azzera tutti i reached e i mode
       wp[i].reached = 2; 
       wp[i].mode = 0;
   }
-  //Serial.println("2");
+
   for (int i = 0; i < DUNO; i++) { //inizializza modeType
     for (int j = 0; j < DDUE; j++) { 
       for (int k = 0; k < DTRE; k++) { 
@@ -202,23 +205,11 @@ void setup() {
     }
   }
 
-//Serial.println("3");
-
     //setup sensori
   sensori.SetUp();
-  //Serial.println("4");
 
   //fa un "saluto" con tutte le superfici di controllo: avvisa che si può iniziare a trasmettere
-  /*servoPos (prevposX, 0);
-  servoPos (prevposY, 0);
-  prevposX = 0;
-  prevposY = 0;
-  
-  delay (1000);
-  servoPos (prevposX, 90);
-  servoPos (prevposY, 90);
-  prevposX = 90;
-  prevposY = 90;*/
+ 
   //setup Motore
   pinMode(PIN_M, OUTPUT);
   Engine.attach(PIN_M);
@@ -229,10 +220,15 @@ void setup() {
   //setup ricetrasmittente
   // if(!rf22.init())
   if (!Radio.SetUp()){
-    Serial.println("failed");
+    
+    #ifdef SerialPrintAll
+      Serial.println("failed");
+    #endif
+    
     servoX.write(30);
     while(1);
   }else{
+    //fa un "saluto" con tutte le superfici di controllo: avvisa che si può iniziare a trasmettere
     servoX.write(30);
     servoY_SX.write(30);
     servoY_DX.write(30);
@@ -244,7 +240,11 @@ void setup() {
     servoX.write(90);
     servoY_SX.write(90);
     servoY_DX.write(90);
-    Serial.println("Transmitter working");
+
+    #ifdef SerialPrintAll
+      Serial.println("Transmitter working");
+    #endif
+    
   }
   
   
@@ -253,7 +253,11 @@ void setup() {
   digitalWrite(SD_Pin, LOW);
   //delay(5000);
   if (!SD.begin(SD_Pin)) {
-    Serial.println("initialization failed...");
+
+    #ifdef SerialPrintAll
+      Serial.println("initialization failed...");
+    #endif
+    
     servoX.write(120);
     while(1);
   }
@@ -263,10 +267,17 @@ void setup() {
   SD_File.close();
   digitalWrite(SD_Pin, HIGH);
   digitalWrite(SD_Power, LOW);
-  Serial.println("initialization done.");
   servoX.write(30);
   servoX.write(120);
-  Serial.println("Ready");
+
+  #ifdef SerialPrintAll
+    Serial.println("initialization done.");
+    Serial.println("Ready");
+  #endif
+
+  #ifdef SerialPrintMin
+    Serial.println("Ready for communication");
+  #endif
   
   //Status = 0 -> richiesta connessione
   while (Status ==0) {
@@ -329,44 +340,67 @@ void setup() {
 void loop() {
   //Per come è strutturato, è molto probabile che il ciclo duri più di DELAY
   //Quindi per il calcolo della velocità si usa la differenza tra loopTime e millis()
+
+  #ifdef SerialPrintMin
+    Serial.println("Starting a loop");
+  #endif
   
   sensori.readGPS(&pos); //ricevi la posizione
   pos.alm = pos.alm - StartingAltitude;
+
+  #ifdef SerialPrintAll
+    Serial.println("1");
+  #endif
   
-  Serial.println("1");
   SpeedDirection(); //trova velocità e direzione; decide se passare al waypoint successivo
-  Serial.println("2");
+  
+  #ifdef SerialPrintAll
+    Serial.println("2");
+  #endif
+  
   while(wp[m+1].reached == 2 && speed == 0){//vedi se siamo atterrati
     Send("f000000000000000000000000000000000000000000000endedl");
     Engine.writeMicroseconds(1000); //spegne il motore
     delay(2000);
   }
-  /*readAndProcessAccelData();  //dati dall'accelerometro
-  Serial.println("3");
-  readCompassData(); //dati dalla bussola*/
-  //Serial.println("4");
+
   //Invia telemetria
   createTelemetry();
   Send(Answer);
-  Serial.println("3");
+  
+  #ifdef SerialPrintAll
+    Serial.println("3");
+  #endif
+  
   newRoute(); //trova e segui la nuova rotta. N.B.: c'è un loop per cui non si passa alla prossima funzione finchè non si è in rotta
-  Serial.println("4");
+  
+  #ifdef SerialPrintAll
+    Serial.println("4");
+  #endif
+  
   loopTime = millis();
-  //Serial.println("6");
+
   sensori.readGPS(&pos); //ricevi la posizione
   pos.alm = pos.alm - StartingAltitude;
   SaveSD();
-  Serial.println("5");
+  
+  #ifdef SerialPrintAll
+    Serial.println("5");
+  #endif
+  
   PresentToPast(&pos, &posPast);  //salva la posizione pos in posPast
-  Serial.println("6");
+  
+  #ifdef SerialPrintAll
+    Serial.println("6");
+  #endif
+  
   //Invia telemetria
   createTelemetry();
   Send(Answer);
-  //Serial.println("7");
+
   while ( millis() - loopTime < DELAY  ) //aspetta per ottenere un intervallo DELAY tra 2 rilevamenti GPS
     newRoute(); //trova e segui la nuova rotta. N.B.: c'è un loop per cui non si passa alla prossima funzione finchè non si è in rotta
-    //PID(); //mantiene una rotta stabile, secondo i parametri stabiliti da newRoute
-  //Serial.println("10");
+    
 }//loop
 
 
@@ -377,12 +411,6 @@ void createTelemetry() {
   Relevant = "";
   Answer = 'f';
 
-  /*//DEBUG
-  pos.lng+=mnb;
-  pos.lat+=mnb;
-  mnb+=10;
-  //FINE DEBUG*/
-  
   //Waypoint
   if (m < 10)
     Relevant = "00" + String(m);
@@ -555,15 +583,23 @@ void createTelemetry() {
 
 void Send( String Answer ) {
 
-  //Serial.println("invio... ");
+
   uint8_t answer[buf_size];
   Answer.getBytes(answer, buf_size);  //trasforma la stringa Answer in array di bytes
   /*rf22.send(answer, sizeof(answer));
     rf22.waitPacketSent(500);*/
   Radio.Send(answer, sizeof(answer));
-  Serial.print("inviato: ");
   Answer = (char*)answer;
-  Serial.println(Answer);
+  
+  #ifdef SerialPrintAll
+    Serial.print("inviato: ");
+    Serial.println(Answer);
+  #endif
+
+  #ifdef SerialPrintMin
+    Serial.println("Data sent");
+  #endif
+  
   Answer = "";
   /*Serial.print("# satelliti: ");
   Serial.println(pos.nSat);*/
@@ -572,19 +608,21 @@ void Send( String Answer ) {
 void Recieve(int i) {
   Data = "";
   uint8_t data[buf_size];
-  Serial.print("ricevo: ");
-  /*rf22.waitAvailable();
-    // Should be a message for us now
-    rf22.recv(data, &buf_size);*/
+
+  #ifdef SerialPrintAll
+    Serial.print("ricevo: ");
+  #endif
+  
   Radio.WaitMessage();
   Radio.Recieve(data);
 
   Data = (char*)data;
+
+  #ifdef SerialPrintAll
     Serial.println(Data);
-  Serial.flush();
-  /*Serial.println(Data);
-  Serial.print("status: ");
-  Serial.println(Status);*/
+    Serial.flush();
+  #endif
+    
   if (Data == "ready" && Status == 0) { //Controllo della connessione
     Answer = "yes";
     Status = 1;
@@ -644,14 +682,18 @@ void Recieve(int i) {
       if(Data.charAt(18)=='-')
         modeType[x][y][4]= - modeType[x][y][4];
 
-      /*Serial.println(Data.charAt(8));
-      Serial.println(x);
-      Serial.println(y);
-      Serial.println(modeType[x][y][0]);
-      Serial.println(modeType[x][y][1]);
-      Serial.println(modeType[x][y][2]);
-      Serial.println(modeType[x][y][3]);
-      Serial.println(modeType[x][y][4]);*/
+      #ifdef SerialPrintAll
+        Serial.println(Data.charAt(8));
+        Serial.println(x);
+        Serial.println(y);
+        Serial.println(modeType[x][y][0]);
+        Serial.println(modeType[x][y][1]);
+        Serial.println(modeType[x][y][2]);
+        Serial.println(modeType[x][y][3]);
+        Serial.println(modeType[x][y][4]);
+        Serial.println("\n\n");
+      #endif
+      
       
     }
 
@@ -796,7 +838,11 @@ void SaveSD(){//salva la telemetria nel file
   SD.begin(SD_Pin);
   SD_File = SD.open("FLIGHT.txt", FILE_WRITE);
   if(SD_File){
-    Serial.println("Scrivo nella SD");
+
+    #ifdef SerialPrintAll
+      Serial.println("Scrivo nella SD");
+    #endif
+    
     String SDdata = String(millis());
     SDdata = SDdata + '_';
     SDdata = SDdata + String(m);
@@ -820,35 +866,19 @@ void SaveSD(){//salva la telemetria nel file
     SDdata = SDdata + String((posY-90) * 2);
     
     SD_File.println(SDdata);
-    
-    /*
-    SD_File.print(String(millis()));
-    SD_File.print('_');
-    SD_File.print(String(m));
-    SD_File.print('_');
-    SD_File.print(String(pos.lat));
-    SD_File.print('_');
-    SD_File.print(String(pos.lng));
-    SD_File.print('_');
-    SD_File.print(String(pos.alm));
-    SD_File.print('_');
-    SD_File.println(String(power));
-    SD_File.print('_');
-    SD_File.print(String(speed));
-    SD_File.print('_');
-    SD_File.print(String(datiGrezzi.angX));
-    SD_File.print('_');
-    SD_File.print(String((posX-90)));
-    SD_File.print('_');
-    SD_File.print(String(datiGrezzi.angY));
-    SD_File.print('_');
-    SD_File.print(String((posY-90) * 2));
-      */
     SD_File.close();
   }
   digitalWrite(SD_Pin, HIGH);
   digitalWrite(SD_Power, LOW);
-  Serial.println("Fine scrittura SD");
+
+  #ifdef SerialPrintAll
+    Serial.println("Fine scrittura SD");
+  #endif
+
+  #ifdef SerialPrintMin
+    Serial.println("Data saved");
+  #endif
+  
 }
 /*------ FUNZIONI DI LOOP -------*/
 
@@ -929,7 +959,9 @@ void newRoute() {
     deltaDir = 360 + deltaDir;
     
   byte c = modeType[wp[m].mode][d2][3]; //c = tipo di condizione
-  Serial.print("Modo: ");
+ 
+  #ifdef SerialPrintAll
+    Serial.print("Modo: ");
     Serial.println(wp[m].mode);
     Serial.print("XWp= ");
     Serial.println(modeType[wp[m].mode][d2][0]);
@@ -937,26 +969,33 @@ void newRoute() {
     Serial.println(modeType[wp[m].mode][d2][1]);
     Serial.print("deltaDir= ");
     Serial.println(modeType[wp[m].mode][d2][2]);
+  #endif
+  
 
-    
- 
   if ( c==1 || (c > 3 && c < 7) || c == 8){
     XWp = modeType[wp[m].mode][d2][0];
     YWp = modeType[wp[m].mode][d2][1];
     deltaDir = modeType[wp[m].mode][d2][2];
-    Serial.println("Nel posto giusto");
+
+    #ifdef SerialPrintAll
+      Serial.println("Nel posto giusto");
+    #endif
+    
   }else if (c==9){//l'istruzione rappresenta gradi/sec, quindi vanno incrementati ogni ciclo
     XWp = modeType[wp[m].mode][d2][0] + datiGrezzi.angX;
     YWp = modeType[wp[m].mode][d2][1] + datiGrezzi.angY;
     deltaDir = modeType[wp[m].mode][d2][2] + dirCompass;
   }
-
-  Serial.print("XWp= ");
+  
+  #ifdef SerialPrintAll
+    Serial.print("XWp= ");
     Serial.println(XWp);
     Serial.print("YWp= ");
     Serial.println(YWp);
     Serial.print("deltaDir= ");
     Serial.println(deltaDir);
+  #endif
+  
     
   if (c!= 7)//non ha senso fare il PID solo per cambiare la potenza, si fa qui sotto nella verifica
     PID();
@@ -1018,8 +1057,12 @@ void newRoute() {
     case 7: {//se la condizione è regolare la potenza del motore
         power = modeType[wp[m].mode][d2][4]; //è la % di potenza, va da 0 a 100
         Engine.writeMicroseconds( (power*10) + 1000  );
-        Serial.println("Power = ");
-        Serial.print(power);
+
+        #ifdef SerialPrintAll
+          Serial.println("Power = ");
+          Serial.print(power);
+        #endif
+        
         d2++;
         wpTime = millis();
     }
@@ -1062,7 +1105,10 @@ void PID() {
   pidVariables(); //dirCompass
   deDir = startDir + deltaDir; //la rotta a cui dirCompass dovrà essere uguale a fine ciclo
 
-  Serial.println("NEL PID");
+  #ifdef SerialPrintAll
+    Serial.println("NEL PID");
+  #endif
+  
 
     
   i_accumulator_B = 0;
@@ -1071,7 +1117,11 @@ void PID() {
 
  while ( checkCondition(c, timePID) ) { //finchè la rotta è fuori da limiti accettabili
     timeP = millis();
-    Serial.println("NEL PIDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD");
+
+    #ifdef SerialPrintAll
+    Serial.println("NEL PIDDDDDDDDDDDDDDDDDDDDDDDDDDDD");
+    #endif
+    
     i++;
     sensori.ReadSensors(&datiGrezzi);
     datiGrezzi.alm = datiGrezzi.alm - StartingAltitude; //trova l'altezza rispetto al punto di partenza
@@ -1084,13 +1134,6 @@ void PID() {
 
     pidVariables(); //trova dirCompass
 
-    /*Serial.print("XWp= ");
-    Serial.println(XWp);
-    Serial.print("YWp= ");
-    Serial.println(XWp);
-    Serial.print("deDir= ");
-    Serial.println(deDir);*/
-    
     //VERIFICA BENE IL DERIVATIVE, E COME METTERLO IN IMBARDATA
 
     //PID per beccheggio
@@ -1112,10 +1155,14 @@ void PID() {
     }else{//se la condizione è il rollio, si ignora la deviazione dalla rotta
       pid_Z = 0;
     }
-    Serial.print("dirCompass= ");
-    Serial.println(dirCompass);
-    Serial.print("pid_Z= ");
-    Serial.println(pid_Z);
+
+    #ifdef SerialPrintAll
+      Serial.print("dirCompass= ");
+      Serial.println(dirCompass);
+      Serial.print("pid_Z= ");
+      Serial.println(pid_Z);
+    #endif
+    
     //PID per rollio
     
     //limita il massimo rollio se bisogna considerare l'imbardata

@@ -10,6 +10,9 @@
 
 #define Pi 3.1415926 //costante pi greco
 
+/*------ DEBUGING TOOLS -------*/
+#define GpsExcluded 1  //non riceve dati dal GPS e usa invece dei valori di default
+
 /*------ COSTANTI BUSSOLA -------*/
 #define Mode_Standby    0b00000000
 #define Mode_Continuous 0b00000001
@@ -75,14 +78,19 @@ void Sensori::setUpCompass() {
 
 void Sensori::GPSReady() {
    int nSat=0; 
-   /*
+
+   #ifndef GpsExcluded
     while (nSat<6){//connesso con almeno 6 satelliti
       while (Serial1.available() > 0){
           gps.encode(Serial1.read());
           nSat=gps.satellites.value();
 
         }
-    }*/
+    }
+   #endif
+   
+   
+    
 }
 
 void Sensori::setUpBarometer(){
@@ -114,23 +122,22 @@ void Sensori::SetUp(){
 //DATA
 
 void Sensori::readGPS(Position *pos) {
-  /*if(Serial1.available() <= 0)
-    Serial.println("no signal");
-  while (Serial1.available() > 0){
-      gps.encode(Serial1.read());
-      pos->lat=gps.location.lat()*10000000;
-      pos->lng=gps.location.lng()*10000000;
-      pos->alm=bmp.readAltitude(1013.25);
-      pos->nSat=gps.satellites.value();
 
-    }
-    */
-  
-  pos->lat = -1 * 10000000;
-  pos->lng = 2 * 10000000;
-  pos->alm = 3;
-  pos->nSat = 5;
-  
+   #ifdef GpsExcluded
+      pos->lat = -1 * 10000000;
+      pos->lng = 2 * 10000000;
+      pos->alm = 3;
+      pos->nSat = 5;
+   #else
+      while (Serial1.available() > 0){
+        gps.encode(Serial1.read());
+        pos->lat=gps.location.lat()*10000000;
+        pos->lng=gps.location.lng()*10000000;
+        pos->alm=bmp.readAltitude(1013.25);
+        pos->nSat=gps.satellites.value();
+      }
+   #endif
+    
 }
 
 void Sensori::readAndProcessAccelData(Dati *dati) {

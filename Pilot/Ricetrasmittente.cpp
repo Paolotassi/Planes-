@@ -9,10 +9,18 @@ uint8_t buffSize = 55;
 RF22 rf22;
 
 bool Ricetrasmittente::SetUp() {
-  if (rf22.init())
-    rf22.setTxPower(15);//potenza massimaaaaa..
-
-  return (rf22.init());
+  rf22.init();
+  rf22.setTxPower(RF22_TXPOW_14DBM);
+  rf22.setModemConfig(9);
+  return true;
+  /*if (!rf22.init()){
+    rf22.setTxPower(RF22_TXPOW_14DBM);
+    rf22.setModemConfig(9);
+    return HIGH;
+  } else {
+    return LOW;
+  }
+  //return (rf22.init());*/
 }
 
 void Ricetrasmittente::Recieve(uint8_t *data) {
@@ -24,7 +32,7 @@ void Ricetrasmittente::Recieve(uint8_t *data) {
 
 void Ricetrasmittente::Send(uint8_t *data, uint8_t lenght) {
   rf22.send(data, lenght);
-  rf22.waitPacketSent(500);
+  rf22.waitPacketSent();
 
 }
 

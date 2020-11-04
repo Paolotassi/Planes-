@@ -6,12 +6,12 @@
 #include <RF22.h>
 #include <string.h>
 
-#define TX_POWER 15
+
 
 // Singleton instance of the radio
 RF22 rf22;
 
-int maxTime = 1000; //se una risposta non viene ricevuta entro maxTime ms, si considera errore
+int maxTime = 200; //se una risposta non viene ricevuta entro maxTime ms, si considera errore
 
 //variabili per collegamento con PC
 String Data = "";      //stringa con comandi o dati
@@ -26,7 +26,8 @@ void setup()
 
   rf22.init(); //setup ricetrasmittente
 
-  rf22.setTxPower(TX_POWER);
+  rf22.setTxPower(RF22_TXPOW_14DBM);
+  rf22.setModemConfig(9);
 
   //rf22.send("trying", 60);
   //servo.attach(3); //debug
@@ -38,11 +39,11 @@ void loop()
   //while (!Serial.available()) {}
   if (Serial.available())  //ricevi una richiesta
   {
-    Data = Serial.readString(); 
+    Data = Serial.readString();
   }
   //Serial.flush();
-  
-    
+
+
   if (Data != "" && Data != "reset") //inoltra la richiesta
   {
     //int len = Data.length()+10;
@@ -50,14 +51,14 @@ void loop()
     uint8_t data[len];
 
     //if (Data=="ready")
-     // servo.write(45);
-      
+    // servo.write(45);
+
     Data.getBytes(data, len);  //trasforma la stringa Data in array di bytes
 
     rf22.send(data, len);
-    rf22.waitPacketSent(500);
+    rf22.waitPacketSent();
+
     
-    Data = "";
 
     if (rf22.waitAvailableTimeout(maxTime)) //ricevi una risposta
     {
@@ -81,17 +82,17 @@ void loop()
     if (Data == "start") //verifica se il volo può iniziare
     {
       telemetria(); //riceve sempre i dati da Pilot, e li inoltra quando richiesto da ControlCenter
-      Data="";
     }
+    Data = "";
   }
 }
 
 void telemetria()
 {
-  byte x=1;
-  while (x==1) //continua fino al reset
+  byte x = 1;
+  while (x == 1) //continua fino al reset
   {
-    String Info;
+
     //stai sempre in ascolto rispetto a Pilot, e aggiorna in contunuo
     //Answer con i dati ricevuti.
     //Se richiesto, inoltrali a ControlCenter
@@ -102,35 +103,25 @@ void telemetria()
       uint8_t answer[buf_size];
       rf22.recv(answer, &buf_size);
       Answer = (char*)answer;
-      if (Answer.length() != 55)
-        Answer = "";
+      //if (Answer.length() != 55)
+      //Answer = "";
+
+     
     }
-
-    //inoltra la risposta
-    if (Serial.available())
-    {
-      Info = Serial.readString();
-    }
-    if (Info == "info" && Answer != "")
-    {
-      Serial.print(Answer);
-      Answer = "";
-    }else if(Info == "reset")
-      x=0;
-
-
-  }
-
-  /*if (rf22.waitAvailableTimeout(maxTime)) //ricevi una risposta
-    {
-    uint8_t buf_size = 50; //verifica a quanto impostare questo
-    uint8_t answer[buf_size];
-    rf22.recv(answer, &buf_size);
-    Answer = (char*)answer;
-    //inoltra la risposta
-
-    Serial.flush();
+    
     Serial.print(Answer);
     Answer = "";
-    }*/
+    /*if (rf22.waitAvailableTimeout(maxTime)) //ricevi una risposta
+      {
+      uint8_t buf_size = 50; //verifica a quanto impostare questo
+      uint8_t answer[buf_size];
+      rf22.recv(answer, &buf_size);
+      Answer = (char*)answer;
+      //inoltra la risposta
+
+      Serial.flush();
+      Serial.print(Answer);
+      Answer = "";
+      }*/
+  }
 }

@@ -30,6 +30,7 @@
 #define DELAY 500  //intervallo MINIMO in millisecondi tra 2 cicli
 #define errDist 2 //distanza in metri dal waypoint al di sotto della quale il wp si considera raggiunto
 #define errAng 2 //distanza in gradi dalla rotta indicata al di sotto del queale loa rotta si considera raggiunta
+#define maxPIDTime  3000  //massimo tempo in ms che si può trascorrere nel ciclo del PID 
 
 //pin dei motori
 #define PIN_B 12  //pin servo beccheggio
@@ -37,10 +38,27 @@
 #define PIN_R_DX 10  //pin servo rollio dx
 #define PIN_M 9  //pin motore principale
 
-/*------ DEBUGING TOOLS -------*/
+/*------ DEBUGING TOOLS E OPZIONI -------*/
 #define SerialPrintAll 1   //Stampa sul monitor seriale quasi tutto quello che accade
 //#define SerialPrintMin 1   //Stampa sul monitor seriale il minimo indispensabile per seguire il programma
+//#define TimingPrimary 1  //Stampa sul monitor seriale i tempi delle funzioni più complesse (che ne chiamano altre)
+//#define TimingSecondary 1  //Stampa sul monitor seriale i tempi delle funzioni più semplici (che non ne chiamano altre)
+//#define TimingNewRoute 1  //Stampa sul monitor seriale il tempo di newRoute
 
+//#define IncludeSD 1 //Include l'uso della scheda SD
+#define IncludeTelemetry 1 //Include l'invio di telemetrie durante il volo
+
+
+#ifdef TimingPrimary
+      long time1;
+#endif
+#ifdef TimingSecondary
+      long time2;
+#endif
+#ifdef TimingNewRoute
+      long timeNR;
+#endif
+   
 /*------ STRUTTURE ---------*/
 
 typedef struct {
@@ -118,6 +136,7 @@ int deDir; //differenza tra l'angolo di un asse e l'angolo desiderato
 float dirCompass; //direzione secondo la bussola
 float startDir = 0; //direzione iniziale prima di una manovra
 float newX, newY;
+
 
 //MOTORE
 Servo Engine; //bisogna inviare un valore tra 1000 e 2000
@@ -247,8 +266,8 @@ void setup() {
     
   }
   
-  
-  //Setup lettore scheda SD
+  #ifdef IncludeSD  //Setup lettore scheda SD
+    
   digitalWrite(SD_Power, HIGH);
   digitalWrite(SD_Pin, LOW);
   //delay(5000);
@@ -267,17 +286,23 @@ void setup() {
   SD_File.close();
   digitalWrite(SD_Pin, HIGH);
   digitalWrite(SD_Power, LOW);
+  #endif
+  
+  
   servoX.write(30);
+  delay(500);
   servoX.write(120);
-
+  delay(500);
+  servoX.write(90);
+  
   #ifdef SerialPrintAll
     Serial.println("initialization done.");
     Serial.println("Ready");
   #endif
 
-  #ifdef SerialPrintMin
-    Serial.println("Ready for communication");
-  #endif
+
+  Serial.println("Ready for communication");
+  
   
   //Status = 0 -> richiesta connessione
   while (Status ==0) {
@@ -335,6 +360,11 @@ void setup() {
   m = 0; //azzera quest'indice, che deve essere usato anche nel loop
   d2 = 0;
 
+  #ifndef IncludeTelemetry
+    digitalWrite(SD_Power, HIGH);
+    digitalWrite(SD_Pin, LOW);
+    SD.begin(SD_Pin);
+  #endif
 }
 
 void loop() {
@@ -344,13 +374,24 @@ void loop() {
   #ifdef SerialPrintMin
     Serial.println("Starting a loop");
   #endif
+
+  #ifdef TimingSecondary
+    time2 = millis();
+  #endif
   
   sensori.readGPS(&pos); //ricevi la posizione
   pos.alm = pos.alm - StartingAltitude;
-
+  
+  #ifdef TimingSecondary
+    time2 = millis() - time2;
+    Serial.print("TIME - Dati da GPS: ");
+    Serial.println(time2);
+  #endif
+  
   #ifdef SerialPrintAll
     Serial.println("1");
   #endif
+
   
   SpeedDirection(); //trova velocità e direzione; decide se passare al waypoint successivo
   
@@ -359,14 +400,22 @@ void loop() {
   #endif
   
   while(wp[m+1].reached == 2 && speed == 0){//vedi se siamo atterrati
-    Send("f000000000000000000000000000000000000000000000endedl");
     Engine.writeMicroseconds(1000); //spegne il motore
-    delay(2000);
+    while (1){
+      #ifdef IncludeTelemetry
+        Send("f000000000000000000000000000000000000000000000endedl");
+      #endif
+   
+      delay(1);
+    }
   }
 
   //Invia telemetria
   createTelemetry();
-  Send(Answer);
+  #ifdef IncludeTelemetry
+    Send(Answer);
+  #endif
+  
   
   #ifdef SerialPrintAll
     Serial.println("3");
@@ -380,9 +429,12 @@ void loop() {
   
   loopTime = millis();
 
+  
   sensori.readGPS(&pos); //ricevi la posizione
   pos.alm = pos.alm - StartingAltitude;
+  
   SaveSD();
+ 
   
   #ifdef SerialPrintAll
     Serial.println("5");
@@ -396,8 +448,10 @@ void loop() {
   
   //Invia telemetria
   createTelemetry();
-  Send(Answer);
-
+  #ifdef IncludeTelemetry
+    Send(Answer);
+  #endif
+  
   while ( millis() - loopTime < DELAY  ) //aspetta per ottenere un intervallo DELAY tra 2 rilevamenti GPS
     newRoute(); //trova e segui la nuova rotta. N.B.: c'è un loop per cui non si passa alla prossima funzione finchè non si è in rotta
     
@@ -407,6 +461,11 @@ void loop() {
 /*------ FUNZIONI DI TRASMISSIONE -------*/
 
 void createTelemetry() {
+  
+  #ifdef TimingSecondary
+    time2 = millis();
+  #endif
+  
   int x;
   Relevant = "";
   Answer = 'f';
@@ -576,6 +635,15 @@ void createTelemetry() {
     Relevant = String(power);
   Answer = Answer + Relevant;
   Answer = Answer + 'l';
+  
+  #ifdef TimingSecondary
+    time2 = millis() - time2;
+    Serial.print("TIME - createTelemetry: ");
+    Serial.println(time2);
+  #endif
+
+  
+  
 
 
   
@@ -583,12 +651,18 @@ void createTelemetry() {
 
 void Send( String Answer ) {
 
-
+  #ifdef TimingSecondary
+    time2 = millis();
+  #endif
+  
   uint8_t answer[buf_size];
   Answer.getBytes(answer, buf_size);  //trasforma la stringa Answer in array di bytes
   /*rf22.send(answer, sizeof(answer));
     rf22.waitPacketSent(500);*/
+ 
   Radio.Send(answer, sizeof(answer));
+ 
+    
   Answer = (char*)answer;
   
   #ifdef SerialPrintAll
@@ -603,9 +677,23 @@ void Send( String Answer ) {
   Answer = "";
   /*Serial.print("# satelliti: ");
   Serial.println(pos.nSat);*/
+  
+  #ifdef TimingSecondary
+    time2 = millis() - time2;
+    Serial.print("TIME - Send: ");
+    Serial.println(time2);
+  #endif
+  
+  
 }
 
 void Recieve(int i) {
+  
+  
+  #ifdef TimingSecondary
+    time2 = millis();
+  #endif
+  
   Data = "";
   uint8_t data[buf_size];
 
@@ -683,14 +771,21 @@ void Recieve(int i) {
         modeType[x][y][4]= - modeType[x][y][4];
 
       #ifdef SerialPrintAll
-        Serial.println(Data.charAt(8));
-        Serial.println(x);
-        Serial.println(y);
-        Serial.println(modeType[x][y][0]);
-        Serial.println(modeType[x][y][1]);
-        Serial.println(modeType[x][y][2]);
-        Serial.println(modeType[x][y][3]);
-        Serial.println(modeType[x][y][4]);
+        Serial.print(Data.charAt(8));
+        Serial.print("  ");
+        Serial.print(x);
+        Serial.print("  ");
+        Serial.print(y);
+        Serial.print("  ");
+        Serial.print(modeType[x][y][0]);
+        Serial.print("  ");
+        Serial.print(modeType[x][y][1]);
+        Serial.print("  ");
+        Serial.print(modeType[x][y][2]);
+        Serial.print("  ");
+        Serial.print(modeType[x][y][3]);
+        Serial.print("  ");
+        Serial.print(modeType[x][y][4]);
         Serial.println("\n\n");
       #endif
       
@@ -828,20 +923,45 @@ void Recieve(int i) {
 
   } else
     Answer = "nope";
+  
+  #ifdef TimingSecondary
+    time2 = millis() - time2;
+    Serial.print("TIME - Recieve: ");
+    Serial.println(time2);
+  #endif
+  
+  
 
 
 }
 
 void SaveSD(){//salva la telemetria nel file
-  digitalWrite(SD_Power, HIGH);
-  digitalWrite(SD_Pin, LOW);
-  SD.begin(SD_Pin);
-  SD_File = SD.open("FLIGHT.txt", FILE_WRITE);
-  if(SD_File){
 
-    #ifdef SerialPrintAll
+  
+  
+    #ifdef TimingSecondary
+    time2 = millis();
+    #endif
+
+  #ifdef IncludeTelemetry
+    #ifdef IncludeSD
+      digitalWrite(SD_Power, HIGH);
+      digitalWrite(SD_Pin, LOW);
+      SD.begin(SD_Pin);
+    #endif
+  #endif
+
+  #ifdef SerialPrintAll
       Serial.println("Scrivo nella SD");
     #endif
+    
+  #ifdef IncludeSD
+  SD_File = SD.open("FLIGHT.txt", FILE_WRITE);
+  
+    
+  if(SD_File){
+
+    
     
     String SDdata = String(millis());
     SDdata = SDdata + '_';
@@ -864,12 +984,17 @@ void SaveSD(){//salva la telemetria nel file
     SDdata = SDdata + String(datiGrezzi.angY);
     SDdata = SDdata + '_';
     SDdata = SDdata + String((posY-90) * 2);
+
     
     SD_File.println(SDdata);
     SD_File.close();
   }
-  digitalWrite(SD_Pin, HIGH);
-  digitalWrite(SD_Power, LOW);
+  #endif
+  
+  #ifdef IncludeTelemetry
+    digitalWrite(SD_Pin, HIGH);
+    digitalWrite(SD_Power, LOW);
+  #endif
 
   #ifdef SerialPrintAll
     Serial.println("Fine scrittura SD");
@@ -879,11 +1004,28 @@ void SaveSD(){//salva la telemetria nel file
     Serial.println("Data saved");
   #endif
   
+  #ifdef TimingSecondary
+    time2 = millis() - time2;
+    Serial.print("TIME - SaveSD: ");
+    Serial.println(time2);
+  #endif
+  
+  
+  
+  
+  
+  
+  
 }
+
 /*------ FUNZIONI DI LOOP -------*/
 
 void SpeedDirection() {
 
+  #ifdef TimingPrimary
+    time1 = millis();
+  #endif
+  
   dist = distanza(posPast.lat, posPast.lng, pos.lat, pos.lng, GtoMLat, GtoMLong, m);//distanza dal rilevamento precedente
   dist = sqrt( dist*dist + (pos.alm - posPast.alm)*(pos.alm - posPast.alm)  );
   speed = dist / (millis() - loopTime);
@@ -905,20 +1047,46 @@ void SpeedDirection() {
     distWp = sqrt( distWp*distWp + (pos.alm - wp[m].alm)*(pos.alm - wp[m].alm)  );
     wpTime = millis();
   }//ifr
+  
+  #ifdef TimingPrimary
+    time1 = millis() - time1;
+    Serial.print("TIME - SpeedDirection: ");
+    Serial.println(time1);
+  #endif
+
+  
 
 
 }
 
 int distanza(long lat1, long lng1, long lat2, long lng2, long GtoMLat, long GtoMLong, int m) { //misura la distanza tra 2 punti
+  
+  
+  #ifdef TimingSecondary
+    time2 = millis();
+  #endif
+  
   float deltaLat, deltaLong;
-
   deltaLat = ((float)(lat2 - lat1) / 10000000) * GtoMLat;
   deltaLong = ((float)( lng2 - lng1 ) / 10000000) * GtoMLong * ( cos((lng2/ 10000000)*Pi/180 ) + cos((lng1/ 10000000)*Pi/180 )) / 2;
 
+  
+  #ifdef TimingSecondary
+    time2 = millis() - time2;
+    Serial.print("TIME - distanza: ");
+    Serial.println(time2);
+  #endif
+  
+  
   return sqrt( deltaLat * deltaLat + deltaLong * deltaLong );
 }//distanza
 
 float direzione(long lat1, long lng1, long lat2, long lng2, long GtoMLat, long GtoMLong, float dist, int m) { //calcola la rotta
+  
+  #ifdef TimingSecondary
+    time2 = millis();
+  #endif
+  
   float deltaLat, deltaLong;
   float arsin;
 
@@ -931,14 +1099,40 @@ float direzione(long lat1, long lng1, long lat2, long lng2, long GtoMLat, long G
   Serial.println(deltaLong);*/
   
   arsin = asin(deltaLat / dist) * 180 / Pi;
+  
+  #ifdef TimingSecondary
+    time2 = millis() - time2;
+    Serial.print("TIME - direzione: ");
+    Serial.println(time2);
+  #endif
+  
+  
   if (arsin >= 0)
     return (acos(deltaLong / dist) * 180 / Pi);
   else
     return (-acos(deltaLong / dist) * 180 / Pi);
 
-}//distanza
+}//direzione
 
 void newRoute() {
+
+  #ifdef TimingNewRoute
+    timeNR = millis();
+  #endif
+
+  #ifdef TimingSecondary
+    time2 = millis();
+  #endif
+  
+  sensori.ReadSensors(&datiGrezzi); //prendi i dati dai sensori
+  datiGrezzi.alm = datiGrezzi.alm - StartingAltitude; //trova l'altezza rispetto al punto di partenza
+  
+  #ifdef TimingSecondary
+    time2 = millis() - time2;
+    Serial.print("TIME - Dati da sensori: ");
+    Serial.println(time2);
+  #endif
+  
   sensori.ReadSensors(&datiGrezzi); //prendi i dati dai sensori
   datiGrezzi.alm = datiGrezzi.alm - StartingAltitude; //trova l'altezza rispetto al punto di partenza
   SaveSD();
@@ -1083,9 +1277,22 @@ void newRoute() {
     break;
     
   }
+  
+  #ifdef TimingNewRoute
+    timeNR = millis() - timeNR;
+    Serial.print("TIME - NewRoute: ");
+    Serial.println(timeNR);
+  #endif
+  
+  
 }
 
 void PID() {
+
+  #ifdef TimingPrimary
+    time1 = millis();
+  #endif
+  
   unsigned long timePID = millis();
   //FUNZIONAMENTO:
   //L'aereo non avrà un timone, quindi si possono controllare soltanto rollio (y) e beccheggio (x)
@@ -1101,7 +1308,12 @@ void PID() {
   sensori.readGPS(&pos); //ricevi la posizione
   pos.alm = pos.alm - StartingAltitude;
   SaveSD();
+  createTelemetry();
   
+  #ifdef IncludeTelemetry
+    Send(Answer);
+  #endif 
+     
   pidVariables(); //dirCompass
   deDir = startDir + deltaDir; //la rotta a cui dirCompass dovrà essere uguale a fine ciclo
 
@@ -1114,12 +1326,32 @@ void PID() {
   i_accumulator_B = 0;
   i_accumulator_R = 0;
   i_accumulator_I = 0;
+  
+  #ifdef TimingPrimary
+    time1 = millis() - time1;
+    Serial.print("TIME - PID_prima_del_ciclo: ");
+    Serial.println(time1);
+  #endif
+  
+  
 
  while ( checkCondition(c, timePID) ) { //finchè la rotta è fuori da limiti accettabili
+
+    
+    #ifdef TimingPrimary
+      time1 = millis();
+    #endif
+    
     timeP = millis();
 
+    #ifdef IncludeTelemetry
+      createTelemetry();
+      Send(Answer);
+    #endif 
+
+    
     #ifdef SerialPrintAll
-    Serial.println("NEL PIDDDDDDDDDDDDDDDDDDDDDDDDDDDD");
+      Serial.println("NEL PIDDDDDDDDDDDDDDDDDDDDDDDDDDDD");
     #endif
     
     i++;
@@ -1127,10 +1359,10 @@ void PID() {
     datiGrezzi.alm = datiGrezzi.alm - StartingAltitude; //trova l'altezza rispetto al punto di partenza
     sensori.readGPS(&pos); //ricevi la posizione
     pos.alm = pos.alm - StartingAltitude;
-    SaveSD();
+    //SaveSD();
     //Invia telemetria
-    createTelemetry();
-    Send(Answer);
+    //createTelemetry();
+    //Send(Answer);
 
     pidVariables(); //trova dirCompass
 
@@ -1243,13 +1475,24 @@ void PID() {
       i_accumulator_R = 0;
       i_accumulator_I = 0;
     }
-
-      
+  
+  #ifdef TimingPrimary
+    time1 = millis() - time1;
+    Serial.print("TIME - PID_nel_ciclo: ");
+    Serial.println(time1);
+  #endif
+    
+  
     while ( (millis() - timeP) < (1000 / SAMPLING_FREQ) ) { //aspetta per far sì che il ciclo duri il giusto
-      //non so se è un tempo sufficiente, ma in caso affermativo
+      /*//non so se è un tempo sufficiente, ma in caso affermativo
       //Invia telemetria
       createTelemetry();
       Send(Answer);
+      SaveSD();
+      */
+      
+      delay( ( (1000 / SAMPLING_FREQ) - (millis() - timeP) )+1 );
+      
     }
  }
 
@@ -1257,15 +1500,32 @@ void PID() {
 
 void pidVariables() {
 
+  #ifdef TimingSecondary
+    time2 = millis();
+  #endif
+  
   newX = datiGrezzi.compX * cos(-datiGrezzi.angX * Pi / 180) + datiGrezzi.compY * sin(-datiGrezzi.angY * Pi / 180) * sin(datiGrezzi.angX * Pi / 180) - datiGrezzi.compZ * cos(-datiGrezzi.angY * Pi / 180) * sin(datiGrezzi.angX * Pi / 180) ;
   newY = datiGrezzi.compY * cos(-datiGrezzi.angY * Pi / 180) + datiGrezzi.compZ * sin(-datiGrezzi.angY * Pi / 180) ;
   dirCompass = atan2( newY, newX ) * 180 / Pi;
+  
+  #ifdef TimingSecondary
+    time2 = millis() - time2;
+    Serial.print("TIME - pidVariables: ");
+    Serial.println(time2);
+  #endif
+  
+  
 
 }
 
 bool checkCondition(byte c, unsigned long timePID){//controlla quanto siamo distanti dai parametri
-    bool a = false,b = false,x = false,y = false, z = false;
-    if ((millis() - timePID )< 1000)
+    
+    #ifdef TimingSecondary
+    time2 = millis();
+  #endif
+  
+  bool a = false,b = false,x = false,y = false, z = false;
+    if ((millis() - timePID )< maxPIDTime) 
       a = true;
 
     if(  ((datiGrezzi.angX - XWp) < -3 || (datiGrezzi.angX - XWp) > 3)  )
@@ -1291,6 +1551,15 @@ bool checkCondition(byte c, unsigned long timePID){//controlla quanto siamo dist
     Serial.println(y);
     Serial.print("z: ");
     Serial.println(z);*/
+
+  #ifdef TimingSecondary
+    time2 = millis() - time2;
+    Serial.print("TIME - checkCondition: ");
+    Serial.println(time2);
+  #endif
+    
+    
+    
     
     if( a && z )
       return true;
@@ -1300,12 +1569,21 @@ bool checkCondition(byte c, unsigned long timePID){//controlla quanto siamo dist
 }
 
 void PresentToPast(Position *pos, Position *posPast) { //salva la posizione pos in posPast
-
+  #ifdef TimingSecondary
+    time2 = millis();
+  #endif
+  
   posPast->lat  = pos->lat ;
   posPast->lng  = pos->lng ;
   posPast->alm  = pos->alm ;
   posPast->nSat = pos->nSat;
 
+  #ifdef TimingSecondary
+    time2 = millis() - time2;
+    Serial.print("TIME - PresentToPast: ");
+    Serial.println(time2);
+  #endif
+  
 }//PresentToPast
 
 

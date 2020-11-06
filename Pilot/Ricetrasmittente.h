@@ -16,13 +16,15 @@ class Ricetrasmittente {
     bool SetUp();
 
     //Recieve data from the ground
-    void Recieve(uint8_t *data);
+    void Recieve(uint8_t *data, uint8_t buffSize);
 
     //Send data to the ground
     void Send(uint8_t *data, uint8_t lenght);
 
     //waits until there's a message for us
     void WaitMessage();
+
+    void Ricetrasmittente::WaitMessageTimeout(int t);
 
 };
 

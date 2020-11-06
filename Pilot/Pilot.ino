@@ -30,7 +30,7 @@
 #define DELAY 500  //intervallo MINIMO in millisecondi tra 2 cicli
 #define errDist 2 //distanza in metri dal waypoint al di sotto della quale il wp si considera raggiunto
 #define errAng 2 //distanza in gradi dalla rotta indicata al di sotto del queale loa rotta si considera raggiunta
-#define maxPIDTime  3000  //massimo tempo in ms che si può trascorrere nel ciclo del PID 
+#define maxPIDTime  500  //massimo tempo in ms che si può trascorrere nel ciclo del PID 
 
 //pin dei motori
 #define PIN_B 12  //pin servo beccheggio
@@ -39,7 +39,7 @@
 #define PIN_M 9  //pin motore principale
 
 /*------ DEBUGING TOOLS E OPZIONI -------*/
-#define SerialPrintAll 1   //Stampa sul monitor seriale quasi tutto quello che accade
+//#define SerialPrintAll 1   //Stampa sul monitor seriale quasi tutto quello che accade
 //#define SerialPrintMin 1   //Stampa sul monitor seriale il minimo indispensabile per seguire il programma
 //#define TimingPrimary 1  //Stampa sul monitor seriale i tempi delle funzioni più complesse (che ne chiamano altre)
 //#define TimingSecondary 1  //Stampa sul monitor seriale i tempi delle funzioni più semplici (che non ne chiamano altre)
@@ -93,6 +93,7 @@ String Answer;    //stringa con telemetria (o altre risposte)
 String Relevant;  //sottostringa di Data, contiene solo i caratteri utili
 uint8_t buf_size = 55; //verifica a quanto impostare questo
 byte Status = 0;  //individua a che punto del Setup siamo. Permette di interpretare correttamente le trasmissioni
+
 
 //GPS
 Position pos;   //posizione attuale
@@ -650,7 +651,8 @@ void createTelemetry() {
 }
 
 void Send( String Answer ) {
-
+ 
+  
   #ifdef TimingSecondary
     time2 = millis();
   #endif
@@ -702,7 +704,7 @@ void Recieve(int i) {
   #endif
   
   Radio.WaitMessage();
-  Radio.Recieve(data);
+  Radio.Recieve(data, buf_size);
 
   Data = (char*)data;
 
@@ -1166,7 +1168,7 @@ void newRoute() {
   #endif
   
 
-  if ( c==1 || (c > 3 && c < 7) || c == 8){
+  if ( c==1 || (c > 3 && c < 7) || c == 8 || c==10){
     XWp = modeType[wp[m].mode][d2][0];
     YWp = modeType[wp[m].mode][d2][1];
     deltaDir = modeType[wp[m].mode][d2][2];
@@ -1275,6 +1277,10 @@ void newRoute() {
         }
     }
     break;
+    case 10: {//se la condizione è mantenere l'assetto per sempre
+          wpTime = millis();   
+    }
+    break;
     
   }
   
@@ -1289,6 +1295,7 @@ void newRoute() {
 
 void PID() {
 
+  //telecomando();
   #ifdef TimingPrimary
     time1 = millis();
   #endif
@@ -1309,7 +1316,8 @@ void PID() {
   pos.alm = pos.alm - StartingAltitude;
   SaveSD();
   createTelemetry();
-  
+
+  telecomando();
   #ifdef IncludeTelemetry
     Send(Answer);
   #endif 
@@ -1337,6 +1345,7 @@ void PID() {
 
  while ( checkCondition(c, timePID) ) { //finchè la rotta è fuori da limiti accettabili
 
+    //telecomando();  
     
     #ifdef TimingPrimary
       time1 = millis();
@@ -1432,36 +1441,7 @@ void PID() {
     posX = 90 + deX;
     posY = 90 - deY;
 
-    /*Serial.print("ServoX= ");
-    Serial.println(posX);
-    Serial.print("ServoY= ");
-    Serial.println(posY);*/
     
-    /*Serial.print("XWp= ");
-    Serial.print(XWp);
-    Serial.print("  dirWp= ");
-    Serial.print(dirWp);
-    Serial.print("  erroreRotta= ");
-    if(-deDir + dirCompass > 180)
-      Serial.print(-360 -deDir + dirCompass);
-    else  if(-deDir + dirCompass < -180) 
-      Serial.print(360 -deDir + dirCompass);
-    else
-       Serial.print(-deDir + dirCompass);
-       
-    Serial.print("  dirCompass= ");
-    Serial.print(dirCompass);
-    Serial.print("  angX= ");
-    Serial.print(datiGrezzi.angX);
-    Serial.print("  angY= ");
-    Serial.print(datiGrezzi.angY);
-    
-    Serial.print("  deX= ");
-    Serial.print(deX);
-    Serial.print("  deY= ");
-    Serial.print(deY);
-    Serial.print("  pid_Z= ");
-    Serial.println(pid_Z);*/
     //servoPos (prevposX, posX);
     //servoPos (prevposY, posY);
     servoX.write(posX);
@@ -1491,7 +1471,7 @@ void PID() {
       SaveSD();
       */
       
-      delay( ( (1000 / SAMPLING_FREQ) - (millis() - timeP) )+1 );
+      delay( ( (1000 / SAMPLING_FREQ) - (millis() - timeP) ) );
       
     }
  }
@@ -1586,7 +1566,59 @@ void PresentToPast(Position *pos, Position *posPast) { //salva la posizione pos 
   
 }//PresentToPast
 
+void telecomando(){
+  
+  Serial.println("telecomando ");
+  uint8_t data[9];
+  Radio.WaitMessageTimeout(5);
+  Radio.Recieve(data, 9);
+  Data = (char*)data;
+    
+  if(Data == "ii"){ //se viene ricevuta una "i"
+    
+    while(Data == "ii"){  //aspetta che arrivi altro
+      //Radio.WaitMessageTimeout(5);
+      Radio.Recieve(data, 9);
+      Data = (char*)data;
+      Serial.println("qui ");
+    }
 
+    while(Data != "ff"){  //mentre non arriva il carattere di fine telecomando
+
+
+  
+      posX = Data.substring(0, 3).toInt();
+      posY = Data.substring(3, 6).toInt();
+      power = Data.substring(6, 9).toInt();
+
+      #ifdef SerialPrintAll
+        Serial.print("POSIZIONI:  X = ");
+        Serial.print(posX);
+        Serial.print("  ||   Y = ");
+        Serial.print(posY);
+        Serial.print("  ||   M = ");
+        Serial.println(power);
+      #endif
+
+      #ifdef SerialPrintMin
+        Serial.println("Arrivato comando");
+      #endif
+      
+      servoX.write(posX);
+      servoY_SX.write(posY);
+      servoY_DX.write(posY);
+      Engine.write(power);
+
+      //Radio.WaitMessageTimeout(5);
+      Radio.Recieve(data, 9);
+      Data = (char*)data;
+
+      Serial.println(Data);
+    }
+   
+  }
+
+}
 
 
 //riga aggiunta perchè mi va

@@ -23,7 +23,7 @@ bool Ricetrasmittente::SetUp() {
   //return (rf22.init());*/
 }
 
-void Ricetrasmittente::Recieve(uint8_t *data) {
+void Ricetrasmittente::Recieve(uint8_t *data, uint8_t buffSize) {
   //uint8_t buffSize = 50;
 
   rf22.recv(data, &buffSize);
@@ -32,10 +32,14 @@ void Ricetrasmittente::Recieve(uint8_t *data) {
 
 void Ricetrasmittente::Send(uint8_t *data, uint8_t lenght) {
   rf22.send(data, lenght);
-  rf22.waitPacketSent();
+  rf22.waitPacketSent(20);
 
 }
 
 void Ricetrasmittente::WaitMessage() {
   rf22.waitAvailable();
+}
+
+void Ricetrasmittente::WaitMessageTimeout(int t) {
+  rf22.waitAvailableTimeout(t);
 }

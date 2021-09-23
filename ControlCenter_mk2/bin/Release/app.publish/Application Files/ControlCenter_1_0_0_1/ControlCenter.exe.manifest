@@ -1,0 +1,65 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<asmv1:assembly xsi:schemaLocation="urn:schemas-microsoft-com:asm.v1 assembly.adaptive.xsd" manifestVersion="1.0" xmlns:asmv1="urn:schemas-microsoft-com:asm.v1" xmlns="urn:schemas-microsoft-com:asm.v2" xmlns:asmv2="urn:schemas-microsoft-com:asm.v2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:co.v1="urn:schemas-microsoft-com:clickonce.v1" xmlns:asmv3="urn:schemas-microsoft-com:asm.v3" xmlns:dsig="http://www.w3.org/2000/09/xmldsig#" xmlns:co.v2="urn:schemas-microsoft-com:clickonce.v2">
+  <asmv1:assemblyIdentity name="ControlCenter.exe" version="1.0.0.1" publicKeyToken="2e03c691967040d3" language="neutral" processorArchitecture="msil" type="win32" />
+  <application />
+  <entryPoint>
+    <assemblyIdentity name="ControlCenter" version="1.0.0.0" language="neutral" processorArchitecture="msil" />
+    <commandLine file="ControlCenter.exe" parameters="" />
+  </entryPoint>
+  <trustInfo>
+    <security>
+      <applicationRequestMinimum>
+        <PermissionSet Unrestricted="true" ID="Custom" SameSite="site" />
+        <defaultAssemblyRequest permissionSetReference="Custom" />
+      </applicationRequestMinimum>
+      <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">
+        <!--
+          Opzioni manifesto Controllo dell'account utente
+          Se si vuole modificare il livello di Controllo dell'account utente di Windows, sostituire il
+          nodo requestedExecutionLevel con uno dei seguenti.
+
+        <requestedExecutionLevel  level="asInvoker" uiAccess="false" />
+        <requestedExecutionLevel  level="requireAdministrator" uiAccess="false" />
+        <requestedExecutionLevel  level="highestAvailable" uiAccess="false" />
+
+         Se si vuole usare Virtualizzazione file system e registro di sistema per la 
+         compatibilità con le versioni precedenti, eliminare il nodo requestedExecutionLevel.
+    -->
+        <requestedExecutionLevel level="asInvoker" uiAccess="false" />
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+  <dependency>
+    <dependentOS>
+      <osVersionInfo>
+        <os majorVersion="5" minorVersion="1" buildNumber="2600" servicePackMajor="0" />
+      </osVersionInfo>
+    </dependentOS>
+  </dependency>
+  <dependency>
+    <dependentAssembly dependencyType="preRequisite" allowDelayedBinding="true">
+      <assemblyIdentity name="Microsoft.Windows.CommonLanguageRuntime" version="4.0.30319.0" />
+    </dependentAssembly>
+  </dependency>
+  <dependency>
+    <dependentAssembly dependencyType="install" allowDelayedBinding="true" codebase="ControlCenter.exe" size="103864">
+      <assemblyIdentity name="ControlCenter" version="1.0.0.0" language="neutral" processorArchitecture="msil" />
+      <hash>
+        <dsig:Transforms>
+          <dsig:Transform Algorithm="urn:schemas-microsoft-com:HashTransforms.Identity" />
+        </dsig:Transforms>
+        <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha256" />
+        <dsig:DigestValue>WIcgPTIewhG3vlSFp9+WBZc5ZPfq1Tjw074kiAwmEDc=</dsig:DigestValue>
+      </hash>
+    </dependentAssembly>
+  </dependency>
+  <file name="ControlCenter.exe.config" size="186">
+    <hash>
+      <dsig:Transforms>
+        <dsig:Transform Algorithm="urn:schemas-microsoft-com:HashTransforms.Identity" />
+      </dsig:Transforms>
+      <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha256" />
+      <dsig:DigestValue>rO4mjoMPTzC1RdE+BMvf0lfywGmtOsKfE96n+SRa584=</dsig:DigestValue>
+    </hash>
+  </file>
+<publisherIdentity name="CN=PAOLOTAX\Paolo" issuerKeyHash="2c6c8320c833e1bad09df4c027b299546b18ea85" /><Signature Id="StrongNameSignature" xmlns="http://www.w3.org/2000/09/xmldsig#"><SignedInfo><CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#" /><SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha256" /><Reference URI=""><Transforms><Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature" /><Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#" /></Transforms><DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha256" /><DigestValue>oxRzHOTVPIck6OHjJ11uxMuPtS0673zPXdf9QlFGGHg=</DigestValue></Reference></SignedInfo><SignatureValue>Ztsd3jFuGnCGXyMYciYklUtrgARZxvMEokCT7oM9Er1hpDdV7D5BTPDnXmQnnFNOgMjm+gDXo4+hBk8B46/aU6ORWpRBj4p87lxAVz/AVNb8KXGa2TDUf5sS856D1iQk8PPK4YwjoeXrgik7pjZey4QvOAjtwZaMNDdRlx41ses=</SignatureValue><KeyInfo Id="StrongNameKeyInfo"><KeyValue><RSAKeyValue><Modulus>3exi8kZETEbXjmdCYsE7o/qQXyhFacdBw9Fj9T8J+riryJgygvuMV8wFSXrsH9s1ZoDBqVKHOYH5LxbAn25EXmcw20fFCeK+7moSph3n6+HnlrLnX3XXrCU5vaX17c6VB125mekeb7H1T+6/RW3966BF8K4pEt+/wqQ6CsJnDr0=</Modulus><Exponent>AQAB</Exponent></RSAKeyValue></KeyValue><msrel:RelData xmlns:msrel="http://schemas.microsoft.com/windows/rel/2005/reldata"><r:license xmlns:r="urn:mpeg:mpeg21:2003:01-REL-R-NS" xmlns:as="http://schemas.microsoft.com/windows/pki/2005/Authenticode"><r:grant><as:ManifestInformation Hash="7818465142fdd75dcf7cef3a2db58fcbc46e5d27e3e1e824873cd5e41c7314a3" Description="" Url=""><as:assemblyIdentity name="ControlCenter.exe" version="1.0.0.1" publicKeyToken="2e03c691967040d3" language="neutral" processorArchitecture="msil" type="win32" /></as:ManifestInformation><as:SignedBy /><as:AuthenticodePublisher><as:X509SubjectName>CN=PAOLOTAX\Paolo</as:X509SubjectName></as:AuthenticodePublisher></r:grant><r:issuer><Signature Id="AuthenticodeSignature" xmlns="http://www.w3.org/2000/09/xmldsig#"><SignedInfo><CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#" /><SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha256" /><Reference URI=""><Transforms><Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature" /><Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#" /></Transforms><DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha256" /><DigestValue>YhOgR1n223eWR/geeO9c5nsv2Wpb8yYLL6e4vgQ7VbU=</DigestValue></Reference></SignedInfo><SignatureValue>F8NhYdLvjbrIjXr8qJwZjjWeezaTm1jm5Nnb9GhNzSEfTgGib4y6rdW5B7PAnoxu6X2hjPyoiDK9c7lUFiCBPLO/dBcFbMSYRljol4F9JAfKqlm5Ha+NenRdrfiYYIRkBB40Uq1j4kYXeaKTC0oPhQWvrAxwZB7xeA+z/sc2wCw=</SignatureValue><KeyInfo><KeyValue><RSAKeyValue><Modulus>3exi8kZETEbXjmdCYsE7o/qQXyhFacdBw9Fj9T8J+riryJgygvuMV8wFSXrsH9s1ZoDBqVKHOYH5LxbAn25EXmcw20fFCeK+7moSph3n6+HnlrLnX3XXrCU5vaX17c6VB125mekeb7H1T+6/RW3966BF8K4pEt+/wqQ6CsJnDr0=</Modulus><Exponent>AQAB</Exponent></RSAKeyValue></KeyValue><X509Data><X509Certificate>MIIB0TCCATqgAwIBAgIQPSASntk1jo5BCt4xXmabZDANBgkqhkiG9w0BAQsFADAnMSUwIwYDVQQDHhwAUABBAE8ATABPAFQAQQBYAFwAUABhAG8AbABvMB4XDTIwMTEyNTA5Mzc1MloXDTIxMTEyNTE1Mzc1MlowJzElMCMGA1UEAx4cAFAAQQBPAEwATwBUAEEAWABcAFAAYQBvAGwAbzCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEA3exi8kZETEbXjmdCYsE7o/qQXyhFacdBw9Fj9T8J+riryJgygvuMV8wFSXrsH9s1ZoDBqVKHOYH5LxbAn25EXmcw20fFCeK+7moSph3n6+HnlrLnX3XXrCU5vaX17c6VB125mekeb7H1T+6/RW3966BF8K4pEt+/wqQ6CsJnDr0CAwEAATANBgkqhkiG9w0BAQsFAAOBgQByTTiq2j6pDUkJKn3Vk593wDKdVboML8Kf4MrNCH9dt0Q76m8rgrGTthYdCFmdb8xapM7Zm22wG/2EDMFKop0X6r6Sv1rZIp8YQ26VFWSdfGx6uYRprPYHBYGOIG9cBdyPNv25/TrGByB6Kts0uQ2AIfSl8EnbrKopwFet0rc1uA==</X509Certificate></X509Data></KeyInfo></Signature></r:issuer></r:license></msrel:RelData></KeyInfo></Signature></asmv1:assembly>

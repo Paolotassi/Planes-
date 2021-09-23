@@ -1,0 +1,63 @@
+D:\Basic_programmi\ControlCenter\bin\Debug\ControlCenter.exe.config
+D:\Basic_programmi\ControlCenter\bin\Debug\ControlCenter.exe
+D:\Basic_programmi\ControlCenter\bin\Debug\ControlCenter.pdb
+D:\Basic_programmi\ControlCenter\bin\Debug\ControlCenter.xml
+D:\Basic_programmi\ControlCenter\obj\Debug\ControlCenter.vbprojAssemblyReference.cache
+D:\Basic_programmi\ControlCenter\obj\Debug\ControlCenter.FlightPlanEditor.resources
+D:\Basic_programmi\ControlCenter\obj\Debug\ControlCenter.InstrumentPanel.resources
+D:\Basic_programmi\ControlCenter\obj\Debug\ControlCenter.MainMenu.resources
+D:\Basic_programmi\ControlCenter\obj\Debug\ControlCenter.Resources.resources
+D:\Basic_programmi\ControlCenter\obj\Debug\ControlCenter.NewFlight.resources
+D:\Basic_programmi\ControlCenter\obj\Debug\ControlCenter.vbproj.GenerateResource.cache
+D:\Basic_programmi\ControlCenter\obj\Debug\ControlCenter.vbproj.CoreCompileInputs.cache
+D:\Basic_programmi\ControlCenter\obj\Debug\ControlCenter.exe
+D:\Basic_programmi\ControlCenter\obj\Debug\ControlCenter.xml
+D:\Basic_programmi\ControlCenter\obj\Debug\ControlCenter.pdb
+D:\Desktop\Autopilot\mk2\ControlCenter\bin\Debug\ControlCenter.exe.config
+D:\Desktop\Autopilot\mk2\ControlCenter\bin\Debug\ControlCenter.exe
+D:\Desktop\Autopilot\mk2\ControlCenter\bin\Debug\ControlCenter.pdb
+D:\Desktop\Autopilot\mk2\ControlCenter\bin\Debug\ControlCenter.xml
+D:\Desktop\Autopilot\mk2\ControlCenter\obj\Debug\ControlCenter.vbprojAssemblyReference.cache
+D:\Desktop\Autopilot\mk2\ControlCenter\obj\Debug\ControlCenter.FlightPlanEditor.resources
+D:\Desktop\Autopilot\mk2\ControlCenter\obj\Debug\ControlCenter.MainMenu.resources
+D:\Desktop\Autopilot\mk2\ControlCenter\obj\Debug\ControlCenter.Resources.resources
+D:\Desktop\Autopilot\mk2\ControlCenter\obj\Debug\ControlCenter.vbproj.GenerateResource.cache
+D:\Desktop\Autopilot\mk2\ControlCenter\obj\Debug\ControlCenter.vbproj.CoreCompileInputs.cache
+D:\Desktop\Autopilot\mk2\ControlCenter\obj\Debug\ControlCenter.exe
+D:\Desktop\Autopilot\mk2\ControlCenter\obj\Debug\ControlCenter.xml
+D:\Desktop\Autopilot\mk2\ControlCenter\obj\Debug\ControlCenter.pdb
+D:\Desktop\Autopilot\mk2\ControlCenter\obj\Debug\ControlCenter.NewFlight.resources
+D:\Desktop\Autopilot\mk2\ControlCenterEsperimenti\bin\Debug\ControlCenter.exe.config
+D:\Desktop\Autopilot\mk2\ControlCenterEsperimenti\bin\Debug\ControlCenter.exe
+D:\Desktop\Autopilot\mk2\ControlCenterEsperimenti\bin\Debug\ControlCenter.pdb
+D:\Desktop\Autopilot\mk2\ControlCenterEsperimenti\bin\Debug\ControlCenter.xml
+D:\Desktop\Autopilot\mk2\ControlCenterEsperimenti\obj\Debug\ControlCenter.vbprojAssemblyReference.cache
+D:\Desktop\Autopilot\mk2\ControlCenterEsperimenti\obj\Debug\ControlCenter.FlightPlanEditor.resources
+D:\Desktop\Autopilot\mk2\ControlCenterEsperimenti\obj\Debug\ControlCenter.MainMenu.resources
+D:\Desktop\Autopilot\mk2\ControlCenterEsperimenti\obj\Debug\ControlCenter.Resources.resources
+D:\Desktop\Autopilot\mk2\ControlCenterEsperimenti\obj\Debug\ControlCenter.NewFlight.resources
+D:\Desktop\Autopilot\mk2\ControlCenterEsperimenti\obj\Debug\ControlCenter.vbproj.GenerateResource.cache
+D:\Desktop\Autopilot\mk2\ControlCenterEsperimenti\obj\Debug\ControlCenter.vbproj.CoreCompileInputs.cache
+D:\Desktop\Autopilot\mk2\ControlCenterEsperimenti\obj\Debug\ControlCenter.exe
+D:\Desktop\Autopilot\mk2\ControlCenterEsperimenti\obj\Debug\ControlCenter.xml
+D:\Desktop\Autopilot\mk2\ControlCenterEsperimenti\obj\Debug\ControlCenter.pdb
+D:\Desktop\Autopilot\mk2\ControlCenter - Copia\bin\Debug\ControlCenter.exe.config
+D:\Desktop\Autopilot\mk2\ControlCenter - Copia\bin\Debug\ControlCenter.exe
+D:\Desktop\Autopilot\mk2\ControlCenter - Copia\bin\Debug\ControlCenter.pdb
+D:\Desktop\Autopilot\mk2\ControlCenter - Copia\bin\Debug\ControlCenter.xml
+D:\Desktop\Autopilot\mk2\ControlCenter - Copia\obj\Debug\ControlCenter.vbprojAssemblyReference.cache
+D:\Desktop\Autopilot\mk2\ControlCenter - Copia\obj\Debug\ControlCenter.FlightPlanEditor.resources
+D:\Desktop\Autopilot\mk2\ControlCenter - Copia\obj\Debug\ControlCenter.MainMenu.resources
+D:\Desktop\Autopilot\mk2\ControlCenter - Copia\obj\Debug\ControlCenter.Resources.resources
+D:\Desktop\Autopilot\mk2\ControlCenter - Copia\obj\Debug\ControlCenter.vbproj.GenerateResource.cache
+D:\Desktop\Autopilot\mk2\ControlCenter - Copia\obj\Debug\ControlCenter.vbproj.CoreCompileInputs.cache
+D:\Desktop\Autopilot\mk2\ControlCenter - Copia\obj\Debug\ControlCenter.exe
+D:\Desktop\Autopilot\mk2\ControlCenter - Copia\obj\Debug\ControlCenter.xml
+D:\Desktop\Autopilot\mk2\ControlCenter - Copia\obj\Debug\ControlCenter.pdb
+D:\Desktop\Autopilot\mk2\ControlCenter - Copia\obj\Debug\ControlCenter.NewFlight.resources
+D:\Desktop\Autopilot\mk2\ControlCenter - Copia\obj\Debug\ControlCenter.CreateMessage.resources
+D:\Desktop\Autopilot\mk2\ControlCenter\bin\Debug\ControlCenter.exe.manifest
+D:\Desktop\Autopilot\mk2\ControlCenter\bin\Debug\ControlCenter.application
+D:\Desktop\Autopilot\mk2\ControlCenter\obj\Debug\ControlCenter.CreateMessage.resources
+D:\Desktop\Autopilot\mk2\ControlCenter\obj\Debug\ControlCenter.exe.manifest
+D:\Desktop\Autopilot\mk2\ControlCenter\obj\Debug\ControlCenter.application
